@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purplle Throughput Tracker — Phase 2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --purple-900: #4A1D6A;
+  --purple-800: #5B2D80;
+  --purple-700: #6D3D96;
+  --purple-600: #7E4DAB;
+  --purple-500: #9B59B6;
+  --purple-400: #B07CC6;
+  --purple-300: #C69FD6;
+  --purple-200: #DBC2E6;
+  --purple-100: #F0E4F6;
+  --purple-50: #F8F2FC;
+  --green: #27AE60;
+  --green-light: #E8F8F0;
+  --red: #E74C3C;
+  --red-light: #FDEDEC;
+  --orange: #F39C12;
+  --orange-light: #FEF5E7;
+  --amber: #C77700;
+  --amber-light: #FFF3E0;
+  --blue: #3498DB;
+  --gray-50: #FAFAFA;
+  --gray-100: #F5F5F5;
+  --gray-200: #EEEEEE;
+  --gray-300: #E0E0E0;
+  --gray-400: #BDBDBD;
+  --gray-500: #9E9E9E;
+  --gray-600: #757575;
+  --gray-700: #616161;
+  --gray-800: #424242;
+  --gray-900: #212121;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--gray-50); color: var(--gray-800); }
+
+.topnav { background: linear-gradient(135deg, var(--purple-900), var(--purple-700)); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-md); }
+.topnav .logo { display: flex; align-items: center; gap: 10px; color: white; font-weight: 700; font-size: 18px; }
+.topnav .logo span { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px; }
+.topnav .user { color: rgba(255,255,255,0.8); font-size: 13px; }
+
+.tab-nav { background: white; border-bottom: 1px solid var(--gray-200); display: flex; padding: 0 24px; overflow-x: auto; position: sticky; top: 56px; z-index: 99; box-shadow: var(--shadow-sm); }
+.tab-btn { padding: 14px 18px; border: none; background: none; font-size: 13px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tab-btn:hover { color: var(--purple-600); background: var(--purple-50); }
+.tab-btn.active { color: var(--purple-700); border-bottom-color: var(--purple-600); font-weight: 600; }
+
+.filter-bar { background: white; padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; border-bottom: 1px solid var(--gray-200); }
+.filter-bar.primary { background: var(--purple-50); border-bottom: 1px solid var(--purple-200); }
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-group label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; }
+.filter-group select, .filter-group input { padding: 7px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; color: var(--gray-700); background: white; min-width: 140px; outline: none; transition: border-color 0.2s; }
+.filter-group select:focus, .filter-group input:focus { border-color: var(--purple-500); box-shadow: 0 0 0 3px rgba(155,89,182,0.1); }
+.filter-apply { background: var(--purple-600); color: white; border: none; padding: 8px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-end; transition: background 0.2s; }
+.filter-apply:hover { background: var(--purple-700); }
+.filter-reset { background: none; color: var(--gray-500); border: 1px solid var(--gray-300); padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; align-self: flex-end; }
+
+.content { padding: 20px 24px; max-width: 1500px; margin: 0 auto; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.kpi-card { background: white; border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); border-left: 4px solid var(--purple-500); }
+.kpi-card .kpi-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 700; color: var(--purple-800); }
+.kpi-card .kpi-sub { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+.kpi-card .kpi-delta { font-size: 12px; font-weight: 600; margin-top: 4px; }
+.kpi-card .kpi-delta.up { color: var(--green); }
+.kpi-card .kpi-delta.down { color: var(--red); }
+.kpi-card.green { border-left-color: var(--green); }
+.kpi-card.orange { border-left-color: var(--orange); }
+.kpi-card.red { border-left-color: var(--red); }
+
+.panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+.panel-header { padding: 14px 20px; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.panel-header h3 { font-size: 14px; font-weight: 600; color: var(--gray-800); }
+.panel-header .badge { background: var(--purple-100); color: var(--purple-700); font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+.panel-body { padding: 16px 20px; overflow-x: auto; }
+.panel-note { padding: 10px 20px; background: var(--purple-50); border-top: 1px solid var(--purple-200); font-size: 12px; color: var(--purple-800); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--purple-50); color: var(--purple-800); font-weight: 600; text-align: left; padding: 10px 14px; border-bottom: 2px solid var(--purple-200); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+td { padding: 9px 14px; border-bottom: 1px solid var(--gray-200); color: var(--gray-700); }
+tr:hover td { background: var(--purple-50); }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.bold { font-weight: 600; color: var(--gray-800); }
+.badge-green { background: var(--green-light); color: var(--green); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-red { background: var(--red-light); color: var(--red); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-orange { background: var(--orange-light); color: var(--orange); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-calm { background: #F3E8FF; color: #7C3AED; padding: 3px 9px; border-radius: 10px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px; border: 1px dashed #C4B5FD; }
+.badge-quality { background: #E0F2FE; color: #0369A1; padding: 3px 9px; border-radius: 10px; font-size: 10.5px; font-weight: 700; }
+.badge-system { background: var(--gray-200); color: var(--gray-600); padding: 3px 9px; border-radius: 10px; font-size: 10.5px; font-weight: 700; }
+.badge-existing { background: var(--green-light); color: var(--green); padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.badge-gap { background: var(--amber-light); color: var(--amber); padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.dept-row td { background: var(--purple-100); font-weight: 700; color: var(--purple-800); }
+.tph-row td { background: var(--purple-800); color: white; font-weight: 700; }
+.calm-row td { color: var(--gray-500); font-style: italic; }
+.calm-row:hover td { background: #F3E8FF; }
+
+.heatmap { display: grid; gap: 2px; }
+.heatmap-cell { padding: 6px 4px; text-align: center; font-size: 11px; font-weight: 600; border-radius: 3px; min-width: 50px; }
+
+.timeline-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.timeline-label { width: 80px; font-size: 11px; font-weight: 600; color: var(--gray-600); text-align: right; }
+.timeline-bar { flex: 1; height: 24px; background: var(--gray-100); border-radius: 3px; position: relative; overflow: hidden; }
+.timeline-block { position: absolute; height: 100%; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: white; font-weight: 600; }
+
+.search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+.search-bar input { flex: 1; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 13px; }
+.search-bar button { background: var(--purple-600); color: white; border: none; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
+
+.chart-container { position: relative; height: 280px; }
+
+.raw-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: flex-end; }
+.raw-filters .filter-group select, .raw-filters .filter-group input { min-width: 120px; }
+.pagination { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; font-size: 13px; color: var(--gray-600); }
+.pagination button { background: var(--purple-100); color: var(--purple-700); border: none; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; font-size: 12px; }
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+.pagination button:hover:not(:disabled) { background: var(--purple-200); }
+.export-btn { background: var(--purple-600); color: white; border: none; padding: 8px 18px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; }
+.export-btn:hover { background: var(--purple-700); }
+
+/* Event chain drill-down */
+.chain-card { border: 1px solid var(--gray-200); border-radius: var(--radius-sm); margin-bottom: 14px; overflow: hidden; }
+.chain-card-header { background: var(--purple-50); padding: 8px 14px; font-size: 12px; font-weight: 700; color: var(--purple-800); display: flex; justify-content: space-between; }
+.chain-list { padding: 10px 14px; }
+.chain-event { display: grid; grid-template-columns: 70px 1fr 90px 90px; gap: 10px; align-items: center; padding: 5px 0; font-size: 12px; border-bottom: 1px dashed var(--gray-200); }
+.chain-event:last-child { border-bottom: none; }
+.chain-event .t { color: var(--gray-500); font-variant-numeric: tabular-nums; }
+.chain-event .n { color: var(--gray-800); }
+.chain-event .src { font-size: 10px; color: var(--gray-400); font-family: monospace; }
+.chain-summary { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 14px; background: var(--gray-50); border-top: 1px solid var(--gray-200); }
+.chain-summary .stat { font-size: 11px; }
+.chain-summary .stat b { display: block; font-size: 15px; color: var(--purple-700); }
+.metric-applicability-note { font-size: 11.5px; color: var(--gray-500); margin-top: 8px; font-style: italic; }
+.legend-strip { display: flex; gap: 16px; align-items: center; font-size: 11.5px; color: var(--gray-600); margin-bottom: 10px; flex-wrap: wrap; }
+.legend-strip .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+.itm-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.itm-card .who { font-weight: 700; color: var(--purple-800); }
+.itm-card select { padding: 7px 10px; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 12px; min-width: 200px; }
+.itm-card button { background: var(--purple-600); color: white; border: none; padding: 7px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; }
+.itm-card button:disabled { opacity: .4; cursor: default; }
+
+/* PE Metrics blocks */
+.pe-panel { border-top: 3px solid var(--purple-600); }
+.pe-intro { font-size: 12.5px; color: var(--gray-600); margin-bottom: 14px; line-height: 1.5; }
+.pe-stat { font-variant-numeric: tabular-nums; }
+.pe-stat.highlight { background: var(--purple-100); font-weight: 700; color: var(--purple-800); border-radius: 4px; }
+.delta-good { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
+.delta-bad { color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; }
+.delta-flat { color: var(--gray-400); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pe-diag { font-size: 10.5px; color: var(--gray-500); font-style: italic; margin-top: 3px; line-height: 1.4; }
+.pe-formula { font-size: 10px; color: var(--gray-400); font-family: monospace; margin-top: 2px; }
+.linkage-item { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px dashed var(--gray-200); font-size: 12px; flex-wrap: wrap; }
+.linkage-item:last-child { border-bottom: none; }
+.linkage-in { background: var(--purple-100); color: var(--purple-800); padding: 3px 9px; border-radius: 10px; font-weight: 700; font-size: 11px; }
+.linkage-arrow { color: var(--purple-400); font-weight: 700; }
+.linkage-out { background: var(--green-light); color: var(--green); padding: 3px 9px; border-radius: 10px; font-weight: 700; font-size: 11px; }
+.linkage-sens { color: var(--gray-500); font-size: 11px; font-style: italic; width: 100%; padding-left: 2px; }
+.rank-badge { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; font-size: 10px; font-weight: 700; background: var(--gray-200); color: var(--gray-700); }
+.rank-badge.worst { background: var(--red-light); color: var(--red); }
+.cluster-row td { background: var(--purple-50); font-weight: 600; font-size: 12px; color: var(--purple-700); }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <div class="logo">Purplle <span>THROUGHPUT TRACKER — PHASE 2 MOCK-UP</span></div>
+  <div class="user">Sri Vibhav Brungi &bull; Operations Excellence</div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('throughput')">Process Throughput</button>
+  <button class="tab-btn" onclick="switchTab('process')">Process Inspector</button>
+  <button class="tab-btn" onclick="switchTab('employee')">Employee Inspector</button>
+  <button class="tab-btn" onclick="switchTab('lead')">Lead Indicators</button>
+  <button class="tab-btn" onclick="switchTab('indirect')">Indirect Task Management</button>
+  <button class="tab-btn" onclick="switchTab('raw')">Raw Data</button>
+</div>
+
+<!-- PRIMARY FILTER BAR: WH ID / Cluster / Period (per Throughput_tracker sheet header) -->
+<div class="filter-bar primary" id="primaryFilters">
+  <div class="filter-group">
+    <label>WH ID</label>
+    <select id="filterWH">
+      <option value="all">All Sites</option>
+      <option value="WH4">WH4 — Gurgaon</option>
+      <option value="WH10" selected>WH10 — Bengaluru</option>
+      <option value="WH12">WH12 — Kolkata</option>
+      <option value="WH21">WH21 — Lucknow</option>
+      <option value="WH25">WH25 — Chennai</option>
+      <option value="WH28">WH28 — Hyderabad</option>
+      <option value="WH29">WH29 — Kochi</option>
+      <option value="WH42">WH42 — Coimbatore</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Cluster</label>
+    <select id="filterCluster">
+      <option value="all">All Clusters</option>
+      <option value="South" selected>South</option>
+      <option value="North">North</option>
+      <option value="East">East</option>
+      <option value="West">West</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Period</label>
+    <select id="filterPeriod">
+      <option value="intraday">Intra-day</option>
+      <option value="day" selected>Day</option>
+      <option value="week">Week</option>
+      <option value="month">Month</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Date</label>
+    <input type="date" id="filterDate" value="2026-08-19">
+  </div>
+  <div class="filter-group">
+    <label>Shift</label>
+    <select id="filterShift">
+      <option value="all" selected>All Shifts</option>
+      <option value="A">Shift A (7AM-3PM)</option>
+      <option value="B">Shift B (3PM-11PM)</option>
+      <option value="C">Shift C (11PM-7AM)</option>
+    </select>
+  </div>
+  <button class="filter-apply" onclick="applyFilters()">Apply</button>
+  <button class="filter-reset" onclick="resetFilters()">Reset</button>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<!-- ===== TAB 1: PROCESS THROUGHPUT ===== -->
+<div class="tab-content active" id="tab-throughput">
+  <div class="kpi-row" id="kpiCards"></div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Department &rarr; Process Path Throughput</h3>
+      <div class="badge" id="throughputBadgeDate"></div>
+    </div>
+    <div class="panel-body">
+      <div class="legend-strip">
+        <span><span class="dot" style="background:var(--green)"></span>Active — full scan-based timestamp capture</span>
+        <span><span class="badge-calm">CALM PENDING</span> Indirect process — requires CALM Code framework (see BRD Addendum 1, BR-6.x)</span>
+        <span><span class="badge-quality">QUALITY KPI</span> Outcome metric, not a labor process</span>
+        <span><span class="badge-system">SYSTEM</span> System-computed step, no associate scan</span>
+      </div>
+      <table id="throughputTable"></table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h3>UPH Trend — Active Processes (7 Days)</h3></div>
+      <div class="panel-body"><div class="chart-container"><canvas id="uphTrendChart"></canvas></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h3>Site Comparison — Network</h3></div>
+      <div class="panel-body"><div class="chart-container"><canvas id="siteCompareChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Hourly Processing Heatmap — Active Processes</h3><div class="badge">7AM - 7PM</div></div>
+    <div class="panel-body" id="heatmapContainer"></div>
+  </div>
+
+  <div class="panel pe-panel">
+    <div class="panel-header">
+      <h3>Network PE Rollup &mdash; Lead Indicator by Site</h3>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="filter-group" style="margin:0;">
+          <label>Process</label>
+          <select id="rollupProcessSelect" onchange="renderNetworkPERollup()" style="min-width:190px;"></select>
+        </div>
+        <div class="filter-group" style="margin:0;">
+          <label>Lead Indicator</label>
+          <select id="rollupIndicatorSelect" onchange="renderNetworkPERollup()" style="min-width:210px;"></select>
+        </div>
+      </div>
+    </div>
+    <div class="panel-body">
+      <p class="pe-intro">Which sites have the worst input metrics for this process &mdash; the network view that tells you where to direct process-engineering effort. Ranked worst-first on TP90.</p>
+      <table id="rollupTable"></table>
+    </div>
+    <div class="panel-note">Site and cluster PE metrics roll up from the same granular timestamps defined in BRD Section 5.0. Cluster rows are unit-weighted averages of their constituent sites.</div>
+  </div>
+</div>
+
+<!-- ===== TAB 2: PROCESS INSPECTOR ===== -->
+<div class="tab-content" id="tab-process">
+  <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="filter-group">
+      <label>Select Process Path</label>
+      <select id="processSelect" onchange="renderProcessInspector()"></select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Associates in <span id="processName">&mdash;</span></h3><div class="badge" id="processStatusBadge"></div></div>
+    <div class="panel-body"><table id="processTable"></table></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h3>Hourly Volume</h3></div>
+      <div class="panel-body"><div class="chart-container"><canvas id="processHourlyChart"></canvas></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h3>UPH Trend (7 Days)</h3></div>
+      <div class="panel-body"><div class="chart-container"><canvas id="processTrendChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: EMPLOYEE INSPECTOR ===== -->
+<div class="tab-content" id="tab-employee">
+  <div class="search-bar">
+    <input type="text" placeholder="Search by Employee ID or Name..." id="empSearch" oninput="filterEmployees()">
+    <button onclick="filterEmployees()">Search</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Associate Performance</h3><div class="badge" id="empCount"></div></div>
+    <div class="panel-body"><table id="employeeTable"></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Activity Timeline &mdash; <span id="timelineEmpName">Select an associate above</span></h3></div>
+    <div class="panel-body" id="timelineContainer">
+      <p style="color:var(--gray-400);font-size:13px;">Click on an associate row to view their daily activity timeline, including scan-level events at bin/rack granularity.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 4: LEAD INDICATORS ===== -->
+<div class="tab-content" id="tab-lead">
+  <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="filter-group">
+      <label>Select Function / Process</label>
+      <select id="leadFunctionSelect" onchange="renderLeadIndicators()"></select>
+    </div>
+    <div class="filter-group">
+      <label>Statistical Treatment (highlight)</label>
+      <select id="peStatSelect" onchange="renderLeadIndicators()">
+        <option value="tp90" selected>TP90</option>
+        <option value="wtdAvg">Weighted Average</option>
+        <option value="avg">Average</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- PE METRICS — PRIMARY CONSUMABLE BLOCK -->
+  <div class="panel pe-panel">
+    <div class="panel-header">
+      <h3>PE Metrics &mdash; Input / Lead Indicators</h3>
+      <div class="badge" id="peLeadBadge"></div>
+    </div>
+    <div class="panel-body">
+      <p class="pe-intro">
+        These are the <b>controllable input metrics</b> that drive productivity in this process. Improving them is what moves the output metrics below.
+        Each is shown as simple <b>Average</b>, <b>Weighted Average</b> (weighted by units processed per observation), and <b>TP90</b> (90% of observations at or below this value &mdash; exposes the slow tail an average conceals).
+      </p>
+      <table id="peLeadTable"></table>
+    </div>
+    <div class="panel-note" id="peLeadNote"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header"><h3>Output / Lag Metrics &mdash; Productivity Result</h3></div>
+      <div class="panel-body"><table id="peOutputTable"></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h3>Input &rarr; Output Linkage</h3><div class="badge">Modeled</div></div>
+      <div class="panel-body" id="peLinkageContainer"></div>
+      <div class="panel-note">Sensitivity estimates are <b>modeled directional guidance, not measured elasticity</b>. Actual coefficients require historical regression against captured timestamp data, which does not exist until Phase 2 capture is live.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Lead Indicator Trend &mdash; <span id="peTrendMetricName"></span></h3>
+      <div class="filter-group" style="margin:0;">
+        <select id="peTrendSelect" onchange="renderPETrend()" style="min-width:240px;"></select>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chart-container"><canvas id="peTrendChart"></canvas></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Derived Metric Reference &mdash; <span id="leadFnName"></span></h3><div class="badge">Last 10 Days</div></div>
+    <div class="panel-body"><table id="leadTable"></table></div>
+    <div class="panel-note" id="leadFormulaNote"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Derived Metric Trend</h3></div>
+    <div class="panel-body"><div class="chart-container"><canvas id="leadTrendChart"></canvas></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Granular Event Timeline &mdash; Evidence Layer</h3>
+      <div class="badge" id="chainBadge">Sample work units</div>
+    </div>
+    <div class="panel-body">
+      <p class="pe-intro">The underlying scan-level evidence from which every lead indicator above is computed.</p>
+      <div class="legend-strip">
+        <span><span class="badge-existing">EXISTING</span> Timestamp already captured &mdash; source table/column shown</span>
+        <span><span class="badge-gap">GAP</span> New capture required &mdash; no source system today</span>
+      </div>
+      <div id="chainContainer"></div>
+    </div>
+    <div class="panel-note" id="chainNote"></div>
+  </div>
+</div>
+
+<!-- ===== TAB 5: INDIRECT TASK MANAGEMENT ===== -->
+<div class="tab-content" id="tab-indirect">
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Associates Not Currently on a Direct Task</h3>
+      <div class="badge" id="itmCount"></div>
+    </div>
+    <div class="panel-body">
+      <p style="font-size:12.5px;color:var(--gray-600);margin-bottom:14px;">
+        Per V1 BR-5.5 — supervisor assigns an idle associate to a predefined indirect task. Hours roll up into that function's total hours on the Process Throughput tab.
+        This is a general-purpose assignment tool and is separate from the CALM-pending process paths flagged on the Process Throughput tab (those require the CALM Code framework — Addendum 1, BR-6.x — not this module).
+      </p>
+      <div id="itmList"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Indirect Hours Roll-Up (Today)</h3></div>
+    <div class="panel-body"><table id="itmRollupTable"></table></div>
+  </div>
+</div>
+
+<!-- ===== TAB 6: RAW DATA ===== -->
+<div class="tab-content" id="tab-raw">
+  <div class="raw-filters">
+    <div class="filter-group">
+      <label>Process</label>
+      <select id="rawProcess"><option value="all">All Processes</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Timestamp Status</label>
+      <select id="rawTsStatus">
+        <option value="all">All</option>
+        <option value="existing">Existing (captured today)</option>
+        <option value="gap">Gap (new capture required)</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>User ID</label>
+      <input type="text" id="rawUser" placeholder="e.g., AA1" style="min-width:100px;">
+    </div>
+    <div class="filter-group">
+      <label>From</label>
+      <input type="time" id="rawTimeFrom" value="07:00">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="time" id="rawTimeTo" value="19:00">
+    </div>
+    <button class="filter-apply" onclick="applyRawFilters()">Fetch</button>
+    <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>Event Log</h3><div class="badge" id="rawCount"></div></div>
+    <div class="panel-body">
+      <table id="rawTable"></table>
+      <div class="pagination">
+        <span id="rawPageInfo"></span>
+        <div style="display:flex;gap:6px;">
+          <button id="rawPrev" onclick="rawPageChange(-1)">&#8592; Prev</button>
+          <button id="rawNext" onclick="rawPageChange(1)">Next &#8594;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+// ============================================================================
+// WAREHOUSE THROUGHPUT TRACKER — PHASE 2 DATA MODEL
+// Single source of truth used by both the HTML mock-up and the BRD generator.
+// Every process path, timestamp field, and metric formula defined here traces
+// back to Throughput_tracker_usecases.xlsx and Throughput_tracker_-_timestamps.xlsx
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// 1. TIMESTAMP GROUPS
+// Each group = a set of scan/system timestamps as they exist in the source
+// gap-analysis sheet. status: "existing" (has a BQ table.column) or "gap"
+// (new capture required — no source system today).
+// ----------------------------------------------------------------------------
+const TIMESTAMP_GROUPS = {
+  pick: {
+    label: "Pick",
+    manpowerPct: 18.80,
+    timestamps: [
+      { name: "Pick list start time", status: "existing", source: "picking_picklist.picker_start_time" },
+      { name: "Crate scan (Pick Initiation Time) — mapped against Order ID", status: "gap", source: null },
+      { name: "Bin ID scan", status: "gap", source: null },
+      { name: "Rack scan", status: "gap", source: null },
+      { name: "Unit scan (Qty/Transaction)", status: "existing", source: "warehouse_bin_inout_log.time" },
+      { name: "Crate scan", status: "gap", source: null },
+      { name: "Pick list end time", status: "existing", source: "picking_picklist.picker_end_time" },
+    ],
+  },
+  prepare: {
+    label: "Prepare",
+    manpowerPct: 18.80,
+    timestamps: [
+      { name: "Crate scan", status: "existing", source: "log_statuschange.time_stamp" },
+      { name: "Item code scan (Qty/Transaction)", status: "gap", source: null },
+      { name: "Box code scan", status: "existing", source: "log_statuschange.time_stamp" },
+      { name: "Shipment label scan", status: "gap", source: null },
+    ],
+  },
+  dispatch: {
+    label: "Dispatch",
+    manpowerPct: 5.27,
+    timestamps: [
+      { name: "Shipment scan", status: "gap", source: null },
+      { name: "Box code scan", status: "gap", source: null },
+      { name: "Weight enter", status: "gap", source: null },
+      { name: "Courier select", status: "existing", source: "log_statuschange.time_stamp" },
+    ],
+  },
+  handover: {
+    label: "Handover",
+    manpowerPct: 3.51,
+    timestamps: [
+      { name: "Courier select", status: "gap", source: null },
+      { name: "Shipment ID scan", status: "existing", source: "log_statuschange.time_stamp" },
+    ],
+  },
+  fresh_inward: {
+    label: "Fresh Inward",
+    manpowerPct: 8.79,
+    timestamps: [
+      { name: "SMR receive", status: "existing", source: "procurement_purchase.time_stamp" },
+      { name: "GRN create", status: "existing", source: "procurement_purchase.time_stamp" },
+      { name: "SKU selection", status: "gap", source: null },
+      { name: "Item code scan", status: "gap", source: null },
+      { name: "Submission / Inward", status: "existing", source: "inventory_inout_log.time_stamp" },
+      { name: "Exception (Short/RTV) handling", status: "existing", source: "inventory_inout_log.time_stamp" },
+      { name: "Close GRN", status: "existing", source: "procurement_purchase.inward_end_time" },
+      { name: "Reopen GRN / Reselection / update", status: "gap", source: null },
+    ],
+  },
+  sto_inward: {
+    label: "STO Inward",
+    manpowerPct: 8.79,
+    timestamps: [
+      { name: "PO details enter (Auto GRN)", status: "existing", source: "procurement_purchase.time_stamp" },
+      { name: "Inward Panel PO initiation", status: "gap", source: null },
+      { name: "Box code scan", status: "gap", source: null },
+      { name: "Bin scan", status: "gap", source: null },
+      { name: "Item code scan", status: "existing", source: "inventory_inout_log.time_stamp" },
+      { name: "Exception (Short/RTV) handling", status: "existing", source: "inventory_inout_log.time_stamp" },
+      { name: "GRN close", status: "existing", source: "procurement_purchase.inward_end_time" },
+    ],
+  },
+  rack_in: {
+    label: "Rack In",
+    manpowerPct: 5.98,
+    timestamps: [
+      { name: "Rack scan", status: "gap", source: null },
+      { name: "Bin scan", status: "gap", source: null },
+      { name: "Bin Merger (Item to Bin)", status: "existing", source: "warehouse_rack_inout_log.time" },
+    ],
+  },
+  rto_receive: {
+    label: "RTO Receive",
+    manpowerPct: 0.88,
+    timestamps: [
+      { name: "Shipment/AWB scan", status: "existing", source: "rto_inward_log.created_on" },
+    ],
+  },
+  rto_inward: {
+    label: "RTO Inward",
+    manpowerPct: 5.27,
+    timestamps: [
+      { name: "Scan bin", status: "existing", source: "rto_inward_log.created_on" },
+      { name: "Shipment ID scan", status: "gap", source: null },
+      { name: "Item code scan", status: "gap", source: null },
+      { name: "Photo click (if any)", status: "gap", source: null },
+      { name: "Close", status: "existing", source: "rto_inward_log.created_on" },
+    ],
+  },
+  rvp_inward: {
+    label: "RVP Inward",
+    manpowerPct: 0.53,
+    timestamps: [
+      { name: "Sellable Bin scan", status: "gap", source: null },
+      { name: "Item code scan (Inward/Return/Reject)", status: "existing", source: "rto_inward_log.created_on" },
+    ],
+  },
+  audit: {
+    label: "Audit",
+    manpowerPct: 7.73,
+    timestamps: [
+      { name: "Bin ID scan", status: "gap", source: null },
+      { name: "Item code scan", status: "existing", source: "warehouse_bin_inout_log.time" },
+    ],
+  },
+  sto_pick_additional: {
+    label: "STO Pick",
+    manpowerPct: 6.33,
+    timestamps: [
+      { name: "STO PO status (New/Draft...)", status: "gap", source: null },
+      { name: "STO picklist generation", status: "existing", source: "picking_picklist_iwt.created_on" },
+      { name: "STO picklist assignment", status: "gap", source: null },
+      { name: "Picklist start time", status: "existing", source: "picking_picklist_iwt.picker_start_time" },
+      { name: "Trolley scan", status: "gap", source: null },
+      { name: "Picklist end (same as B2C Pick)", status: "existing", source: "warehouse_bin_inout_log.time, picking_picklist_iwt.picker_end_time" },
+    ],
+  },
+  sto_prepare: {
+    label: "STO Prepare",
+    manpowerPct: 3.16,
+    timestamps: [
+      { name: "(Same fields as Prepare — Crate scan, Item scan, Box scan, Shipment label scan)", status: "inherit", source: "prepare" },
+    ],
+  },
+  sto_pack: {
+    label: "STO Pack",
+    manpowerPct: 3.16,
+    timestamps: [
+      { name: "Consignment ID scan", status: "gap", source: null },
+      { name: "Box ID scan", status: "gap", source: null },
+      { name: "LBH (dimension) capture", status: "gap", source: null },
+      { name: "Weight capture", status: "gap", source: null },
+    ],
+  },
+  sto_dispatch: {
+    label: "STO Dispatch",
+    manpowerPct: 0.88,
+    timestamps: [
+      { name: "Consignment/Master AWB select", status: "gap", source: null },
+      { name: "Box ID scan", status: "existing", source: "sto_consignment_log.created_on" },
+    ],
+  },
+  receiving_panel: {
+    label: "Receiving Panel",
+    manpowerPct: 0.53,
+    timestamps: [
+      { name: "New receipt start", status: "gap", source: null },
+      { name: "Consignment ID scan", status: "gap", source: null },
+      { name: "Box ID scan", status: "gap", source: null },
+      { name: "Confirm", status: "existing", source: "sto_consignment_log.created_on" },
+    ],
+  },
+  rts_b2b: {
+    label: "RTS Process — B2B",
+    manpowerPct: 0.53,
+    timestamps: [
+      { name: "Picklist creation", status: "gap", source: null },
+      { name: "Picklist assign", status: "gap", source: null },
+      { name: "Pick list start", status: "gap", source: null },
+      { name: "(Pack/STO stages — same as B2B picking/packing)", status: "inherit", source: "prepare" },
+    ],
+  },
+  rts_b2c: {
+    label: "RTS Process — B2C",
+    manpowerPct: 1.05,
+    timestamps: [
+      { name: "RTS box receive", status: "gap", source: null },
+      { name: "Crate allocation scan (Rack x Crate mapping)", status: "gap", source: null },
+      { name: "Collation (item code scan + crate scan)", status: "gap", source: null },
+      { name: "Completed", status: "gap", source: null },
+      { name: "Stand-by bin addition", status: "gap", source: null },
+      { name: "Putaway — Crate scan", status: "gap", source: null },
+      { name: "Putaway — Rack scan", status: "gap", source: null },
+      { name: "Putaway — Trolley scan", status: "gap", source: null },
+    ],
+  },
+  red_channel: {
+    label: "Red Channel",
+    manpowerPct: null,
+    timestamps: [
+      { name: "Picklist assign", status: "gap", source: null },
+      { name: "(Same as B2C Pick)", status: "inherit", source: "pick" },
+    ],
+  },
+};
+
+// ----------------------------------------------------------------------------
+// 2. LEADING-INDICATOR METRIC DEFINITIONS
+// Formulas proposed for validation. applicableGroups = tsGroup keys the
+// metric is computable for (based on which timestamps exist in that group).
+// ----------------------------------------------------------------------------
+const METRIC_DEFINITIONS = [
+  {
+    id: "productive_time",
+    name: "Productive Time (% Availability)",
+    unit: "%",
+    formula: "(Total Direct Scan Hours) / (Total Shift Hours − Authorized Break) × 100",
+    logic: "Sum of time between first and last scan of each active work session, divided by scheduled productive shift window.",
+    applicableGroups: "all_active",
+    existingInV1: true,
+  },
+  {
+    id: "unknown_idle",
+    name: "Unknown Idle Time (UIT)",
+    unit: "% Hours Lost",
+    formula: "Σ (gap between two consecutive scans by the same associate that exceeds the idle threshold, default 5 min) / Total Shift Hours × 100",
+    logic: "Refined for Phase 2: computed purely from scan-to-scan gaps at the timestamp level (no dependency on CALM sessions). Where the CALM Code framework (Addendum 1, BR-6.x) is separately implemented, this may later combine with 'no open CALM session' as a second condition — Phase 2 defines the scan-gap-only version and does not assume CALM exists.",
+    applicableGroups: "all_active",
+    existingInV1: true,
+    note: "V1 BR-5.4.2 names this metric without a formula. Addendum 1 (BR-6.3.4) proposed a CALM-dependent 'True Idle' definition. Phase 2 proposes an independent scan-gap definition usable with or without CALM.",
+  },
+  {
+    id: "time_at_bin",
+    name: "Time at Bin",
+    unit: "seconds (avg per bin visit)",
+    formula: "Bin-scan-out timestamp − Bin-scan-in timestamp, averaged across all bin visits in the period",
+    logic: "Requires paired bin-in/bin-out scans. Where only a single bin scan exists (no explicit in/out pair), Time at Bin is inferred as the time between the bin scan and the next unit/item scan at that bin.",
+    applicableGroups: ["pick", "rack_in", "audit"],
+    existingInV1: true,
+  },
+  {
+    id: "time_between_bin",
+    name: "Time Between Bin",
+    unit: "seconds (avg)",
+    formula: "Bin-scan-in timestamp (bin N+1) − Bin-scan-out timestamp (bin N), averaged across all consecutive bin-to-bin moves",
+    logic: "Captures walk/travel time between two picking or putaway locations. High values indicate slotting inefficiency or congestion.",
+    applicableGroups: ["pick", "rack_in", "rts_b2c"],
+    existingInV1: true,
+  },
+  {
+    id: "auxiliary_task_pct",
+    name: "Auxiliary Task %",
+    unit: "%",
+    formula: "(Crate scan time + Dropzone time + other non-core-scan time) / Total picklist time × 100",
+    logic: "Measures time spent on supporting actions (crate handling, dropzone drop-off) as a share of total time on a work order — a proxy for process-design friction, not associate slowness.",
+    applicableGroups: ["pick", "prepare", "sto_pick_additional", "sto_prepare"],
+    existingInV1: false,
+  },
+  {
+    id: "fast_start",
+    name: "Fast Start",
+    unit: "% of expected volume by milestone",
+    formula: "Volume processed by a defined early-shift milestone (e.g., first 60 minutes) / Expected volume for that window × 100",
+    logic: "Early-shift ramp-up indicator. Milestone window and expected-volume baseline are configuration-panel inputs (Addendum 1, BR-7.2) — out of scope to build in Phase 2, referenced only.",
+    applicableGroups: "all_active",
+    existingInV1: false,
+  },
+  {
+    id: "strong_finish",
+    name: "Strong Finish",
+    unit: "% of volume in final window",
+    formula: "Volume processed in the final defined window before shift-end/CPT / Total shift volume × 100",
+    logic: "Symmetric counterpart to Fast Start — measures whether output holds up near shift-end/cut-off rather than tailing off.",
+    applicableGroups: "all_active",
+    existingInV1: false,
+  },
+  {
+    id: "labour_move",
+    name: "Labour Move",
+    unit: "% Hours Lost",
+    formula: "Σ (time between an associate's last scan in Process A and first scan in Process B, where A ≠ B, within the same shift) / Total Shift Hours × 100",
+    logic: "Captures time lost to associates being physically relocated between process paths mid-shift.",
+    applicableGroups: "all_active",
+    existingInV1: false,
+  },
+  {
+    id: "break_overrun",
+    name: "Break",
+    unit: "% Hours Lost",
+    formula: "(Actual break duration − Configured break duration) / Total Shift Hours × 100, floored at 0",
+    logic: "Requires break start/end timestamps (currently not in the gap-analysis sheet — flagged as a new capture ask alongside a Shift/Break config panel; the config panel itself sits under Addendum 1, BR-7.1, and is not built in Phase 2).",
+    applicableGroups: "all_active",
+    existingInV1: false,
+  },
+  {
+    id: "changeover_time",
+    name: "Changeover Time",
+    unit: "seconds (avg)",
+    formula: "Timestamp of first scan on new picklist/container − Timestamp of last scan on previous picklist/container",
+    logic: "Time lost between closing one unit of work (pick list, container, shipment) and starting the next.",
+    applicableGroups: ["pick", "sto_pick_additional", "dispatch"],
+    existingInV1: true,
+  },
+  {
+    id: "time_between_shipments",
+    name: "Time Between Shipments",
+    unit: "seconds (avg)",
+    formula: "Shipment-scan timestamp (shipment N+1) − Shipment-scan timestamp (shipment N)",
+    logic: "Dispatch-specific pacing metric.",
+    applicableGroups: ["dispatch"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_sku_inward",
+    name: "Time per SKU in Inward",
+    unit: "seconds (avg)",
+    formula: "Total Fresh Inward processing time / Distinct SKU count processed",
+    logic: "Normalizes inward productivity by SKU complexity rather than unit count.",
+    applicableGroups: ["fresh_inward"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_grn_inward",
+    name: "Time per GRN in Inward",
+    unit: "minutes (avg)",
+    formula: "GRN close timestamp − GRN create timestamp, averaged across GRNs closed in period",
+    logic: "End-to-end GRN cycle time.",
+    applicableGroups: ["fresh_inward"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_box_sto_inward",
+    name: "Time per Box (STO Inward)",
+    unit: "seconds (avg)",
+    formula: "Total STO Inward processing time / Total boxes processed",
+    logic: "STO-inward equivalent of Time per SKU.",
+    applicableGroups: ["sto_inward"],
+    existingInV1: false,
+  },
+  {
+    id: "receiving_panel_bph",
+    name: "Receiving Panel — BPH (Boxes per Hour)",
+    unit: "boxes/hour",
+    formula: "Total boxes confirmed / Total hours logged on Receiving Panel",
+    logic: "Throughput rate specific to the STO Receiving Panel.",
+    applicableGroups: ["receiving_panel"],
+    existingInV1: false,
+  },
+  {
+    id: "time_at_bin_audit",
+    name: "Time at Bin (Audit)",
+    unit: "seconds (avg)",
+    formula: "Same formula as Time at Bin, scoped to Audit-flagged bin visits only",
+    logic: "Kept as a separate metric from the general Time at Bin because Audit bin visits include a count/verification step with a different expected duration profile.",
+    applicableGroups: ["audit"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_shipment_rto_receiving",
+    name: "Time per Shipment — RTO Receiving",
+    unit: "seconds (avg)",
+    formula: "Close timestamp − Shipment/AWB scan timestamp, averaged per shipment",
+    logic: "RTO Receive cycle time.",
+    applicableGroups: ["rto_receive"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_shipment_packing",
+    name: "Time per Shipment — Packing",
+    unit: "seconds (avg)",
+    formula: "Box code scan timestamp − Crate scan timestamp, averaged per shipment",
+    logic: "Prepare/Pack cycle time per shipment.",
+    applicableGroups: ["prepare", "sto_prepare"],
+    existingInV1: false,
+  },
+  {
+    id: "time_per_shipment_prepare",
+    name: "Time per Shipment — Prepare",
+    unit: "seconds (avg)",
+    formula: "Same computation approach as Time per Shipment — Packing, scoped to the Prepare stage prior to boxing",
+    logic: "Distinguishes prepare-stage dwell from pack-stage dwell within the same shipment.",
+    applicableGroups: ["prepare"],
+    existingInV1: false,
+  },
+  {
+    id: "hc_utilization",
+    name: "HC Utilization (FC / DC / Store-FC level)",
+    unit: "%",
+    formula: "(Headcount logged with ≥1 scan in period) / (Headcount rostered per attendance system) × 100",
+    logic: "Network-level reconciliation metric — attendance vs. actual system engagement.",
+    applicableGroups: "all_active",
+    existingInV1: false,
+  },
+];
+
+// ----------------------------------------------------------------------------
+// 3. DEPARTMENT / PROCESS-PATH TAXONOMY (mirrors Throughput_tracker sheet)
+// status: "active" (full timestamp + metric treatment),
+//         "calm_pending" (indirect — requires CALM Code framework, Addendum 1),
+//         "quality_ref" (DPMO — outcome KPI, not a labor process),
+//         "system_computed" (B2C allocation — automated, not associate-performed)
+// ----------------------------------------------------------------------------
+const TAXONOMY = [
+  {
+    dept: "Inbound",
+    processes: [
+      { name: "Inward QC + Receive", status: "active", tsGroups: ["fresh_inward"], stage: "SMR receive" },
+      { name: "GRN", status: "active", tsGroups: ["fresh_inward"], stage: "GRN create / close / reopen" },
+      { name: "Inward", status: "active", tsGroups: ["fresh_inward"], stage: "SKU selection / item scan / submission" },
+      { name: "Rack In & Consolidation", status: "active", tsGroups: ["rack_in"] },
+      { name: "Inward Support", status: "active", tsGroups: ["sto_inward", "receiving_panel"] },
+    ],
+  },
+  {
+    dept: "Outbound",
+    processes: [
+      { name: "Picking (Non RTS)", status: "active", tsGroups: ["pick"] },
+      { name: "Packing (Non RTS)", status: "active", tsGroups: ["prepare"] },
+      { name: "Shredder", status: "calm_pending" },
+      { name: "Kardex", status: "calm_pending" },
+      { name: "Red Channel", status: "active", tsGroups: ["red_channel"] },
+      { name: "OB Support", status: "calm_pending" },
+      { name: "Dispatch", status: "active", tsGroups: ["dispatch"] },
+      { name: "Handover", status: "active", tsGroups: ["handover"] },
+    ],
+  },
+  {
+    dept: "ICQA",
+    processes: [
+      { name: "Bin Counting (units)", status: "active", tsGroups: ["audit"] },
+      { name: "DPMO", status: "quality_ref" },
+      { name: "Not Found & Refilling", status: "calm_pending" },
+      { name: "Audit IOL", status: "active", tsGroups: ["audit"] },
+      { name: "Process Audit (Inward bins & Packing boxes)", status: "active", tsGroups: ["audit"] },
+      { name: "Cubicscan & DC ICQA & Fragile Testing", status: "calm_pending" },
+    ],
+  },
+  {
+    dept: "IWT",
+    processes: [
+      { name: "IWT Picking", status: "active", tsGroups: ["sto_pick_additional"] },
+      { name: "IWT Packing", status: "active", tsGroups: ["sto_prepare", "sto_pack", "sto_dispatch"] },
+      { name: "Store Rack Out - Manual", status: "calm_pending" },
+    ],
+  },
+  {
+    dept: "RTS",
+    processes: [
+      { name: "B2B Picking", status: "active", tsGroups: ["rts_b2b"] },
+      { name: "B2B Prepare and Pack", status: "active", tsGroups: ["rts_b2b"] },
+      { name: "B2C Picking", status: "active", tsGroups: ["pick"] },
+      { name: "B2C allocation", status: "system_computed" },
+      { name: "B2C Collation and Putaway", status: "active", tsGroups: ["rts_b2c"] },
+    ],
+  },
+  {
+    dept: "RTO + RVP",
+    processes: [
+      { name: "RTO", status: "active", tsGroups: ["rto_receive", "rto_inward"] },
+      { name: "RTO Bin In", status: "active", tsGroups: ["rvp_inward"] },
+    ],
+  },
+  {
+    dept: "RTV",
+    processes: [
+      { name: "RTV", status: "calm_pending" },
+    ],
+  },
+];
+
+
+// ============================================================================
+// PROCESS ENGINEERING (PE) METRICS FRAMEWORK
+// ----------------------------------------------------------------------------
+// For every process, two tiers:
+//   leadIndicators  — INPUT metrics. Controllable, diagnosable, improvable.
+//                     These are what a TL/AM actually pulls on day to day.
+//   outputMetrics   — LAG metrics. The productivity result that moves when
+//                     the lead indicators move.
+//   linkages        — explicit input -> output mapping with a directional
+//                     sensitivity estimate (MODELED, not measured).
+//
+// Every lead indicator carries three statistical treatments:
+//   avg      — simple arithmetic mean of all observations
+//   wtdAvg   — weighted by units processed in that observation (see weightBasis)
+//   tp90     — 90th percentile; 90% of observations at or below this value.
+//              For time metrics lower is better, so TP90 exposes the slow tail
+//              that a simple average conceals.
+// ============================================================================
+
+const PE_METRICS = {
+
+  pick: {
+    leadIndicators: [
+      { id: 'pick_time_at_bin', name: 'Time at Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin-scan-out timestamp − Bin-scan-in timestamp, per bin visit',
+        weightBasis: 'Units picked at that bin',
+        diagnoses: 'Bin congestion, poor slotting, SKU findability, deep-bin search time' },
+      { id: 'pick_time_to_bin', name: 'Time to Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin-scan-in timestamp (bin N+1) − Bin-scan-out timestamp (bin N)',
+        weightBasis: 'Units picked at destination bin',
+        diagnoses: 'Pick-path sequencing, zone layout, travel distance, aisle congestion' },
+      { id: 'pick_unit_scan_interval', name: 'Unit Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive unit scans within the same bin visit',
+        weightBasis: 'Units scanned in that bin visit',
+        diagnoses: 'Scan ergonomics, HHD responsiveness, multi-qty handling technique' },
+      { id: 'pick_changeover', name: 'Picklist Changeover Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'First scan on new picklist − Last scan on previous picklist',
+        weightBasis: 'Units on the new picklist',
+        diagnoses: 'Crate staging, dropzone queueing, picklist assignment lag' },
+      { id: 'pick_aux_handling', name: 'Auxiliary Handling Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'Σ crate scan + dropzone time per picklist',
+        weightBasis: 'Units on picklist',
+        diagnoses: 'Container handling design, dropzone placement, crate availability' },
+    ],
+    outputMetrics: [
+      { id: 'pick_uph', name: 'Pick UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'pick_idle', name: 'Idle Time % (Pick)', unit: '%', lowerIsBetter: true },
+      { id: 'pick_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'pick_time_at_bin', output: 'pick_uph', sensitivity: 'TP90 −10 sec ≈ +6-9% Pick UPH' },
+      { lead: 'pick_time_to_bin', output: 'pick_uph', sensitivity: 'TP90 −10 sec ≈ +5-8% Pick UPH' },
+      { lead: 'pick_unit_scan_interval', output: 'pick_uph', sensitivity: 'Avg −2 sec ≈ +3-5% Pick UPH' },
+      { lead: 'pick_changeover', output: 'pick_idle', sensitivity: 'Avg −30 sec ≈ −1.5-2.5 pp Idle %' },
+      { lead: 'pick_aux_handling', output: 'pick_aux_pct', sensitivity: 'Avg −20 sec ≈ −2-3 pp Auxiliary Task %' },
+    ],
+  },
+
+  prepare: {
+    leadIndicators: [
+      { id: 'prep_time_per_shipment', name: 'Time per Shipment (Prepare)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Box code scan timestamp − Crate scan timestamp, per shipment',
+        weightBasis: 'Units in that shipment',
+        diagnoses: 'Pack-station layout, material availability, shipment complexity' },
+      { id: 'prep_crate_to_item_latency', name: 'Crate-to-First-Item Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'First item code scan − Crate scan timestamp',
+        weightBasis: 'Units in crate',
+        diagnoses: 'Crate presentation, sorting effort before first scan' },
+      { id: 'prep_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within a shipment',
+        weightBasis: 'Units scanned',
+        diagnoses: 'Scan technique, item handling, barcode legibility' },
+      { id: 'prep_label_latency', name: 'Box-to-Label Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Shipment label scan − Box code scan timestamp',
+        weightBasis: 'Shipments',
+        diagnoses: 'Printer response, label application, verification step friction' },
+      { id: 'prep_changeover', name: 'Crate Changeover Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'First scan on new crate − Last scan on previous crate',
+        weightBasis: 'Units on new crate',
+        diagnoses: 'Crate replenishment to station, water-spider responsiveness' },
+    ],
+    outputMetrics: [
+      { id: 'prep_uph', name: 'Prepare UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'prep_idle', name: 'Idle Time % (Prepare)', unit: '%', lowerIsBetter: true },
+      { id: 'prep_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'prep_time_per_shipment', output: 'prep_uph', sensitivity: 'TP90 −15 sec ≈ +7-10% Prepare UPH' },
+      { lead: 'prep_crate_to_item_latency', output: 'prep_uph', sensitivity: 'Avg −5 sec ≈ +2-4% Prepare UPH' },
+      { lead: 'prep_item_scan_interval', output: 'prep_uph', sensitivity: 'Avg −2 sec ≈ +3-5% Prepare UPH' },
+      { lead: 'prep_label_latency', output: 'prep_aux_pct', sensitivity: 'Avg −5 sec ≈ −1-2 pp Auxiliary Task %' },
+      { lead: 'prep_changeover', output: 'prep_idle', sensitivity: 'Avg −25 sec ≈ −1.5-2 pp Idle %' },
+    ],
+  },
+
+  dispatch: {
+    leadIndicators: [
+      { id: 'disp_time_between_shipments', name: 'Time Between Shipments', unit: 'sec', lowerIsBetter: true,
+        formula: 'Shipment scan (N+1) − Shipment scan (N)',
+        weightBasis: 'Shipments processed',
+        diagnoses: 'Staging sequence, conveyor/trolley feed rate, station queueing' },
+      { id: 'disp_weight_entry_latency', name: 'Weight Entry Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Weight enter timestamp − Box code scan timestamp',
+        weightBasis: 'Shipments',
+        diagnoses: 'Weighing scale integration, manual entry vs auto-capture' },
+      { id: 'disp_courier_select_latency', name: 'Courier Select Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Courier select timestamp − Weight enter timestamp',
+        weightBasis: 'Shipments',
+        diagnoses: 'Courier allocation logic response time, manual override frequency' },
+    ],
+    outputMetrics: [
+      { id: 'disp_uph', name: 'Dispatch UPH', unit: 'shipments/hr', lowerIsBetter: false },
+      { id: 'disp_idle', name: 'Idle Time % (Dispatch)', unit: '%', lowerIsBetter: true },
+      { id: 'disp_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'disp_time_between_shipments', output: 'disp_uph', sensitivity: 'TP90 −10 sec ≈ +8-12% Dispatch UPH' },
+      { lead: 'disp_weight_entry_latency', output: 'disp_uph', sensitivity: 'Avg −3 sec ≈ +2-4% Dispatch UPH' },
+      { lead: 'disp_courier_select_latency', output: 'disp_aux_pct', sensitivity: 'Avg −4 sec ≈ −1.5-2.5 pp Auxiliary Task %' },
+    ],
+  },
+
+  handover: {
+    leadIndicators: [
+      { id: 'ho_shipment_scan_interval', name: 'Shipment Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive shipment ID scans at handover',
+        weightBasis: 'Shipments handed over',
+        diagnoses: 'Manifest staging, carrier vehicle readiness, dock congestion' },
+      { id: 'ho_courier_to_scan_latency', name: 'Courier Select-to-Scan Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'First shipment ID scan − Courier select timestamp',
+        weightBasis: 'Shipments in that handover batch',
+        diagnoses: 'Batch preparation lag, carrier arrival vs readiness mismatch' },
+    ],
+    outputMetrics: [
+      { id: 'ho_uph', name: 'Handover UPH', unit: 'shipments/hr', lowerIsBetter: false },
+      { id: 'ho_idle', name: 'Idle Time % (Handover)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'ho_shipment_scan_interval', output: 'ho_uph', sensitivity: 'TP90 −5 sec ≈ +10-14% Handover UPH' },
+      { lead: 'ho_courier_to_scan_latency', output: 'ho_idle', sensitivity: 'Avg −60 sec ≈ −2-3 pp Idle %' },
+    ],
+  },
+
+  fresh_inward: {
+    leadIndicators: [
+      { id: 'fi_time_per_sku', name: 'Time per SKU', unit: 'sec', lowerIsBetter: true,
+        formula: 'Total inward processing time / distinct SKU count',
+        weightBasis: 'Units per SKU',
+        diagnoses: 'SKU selection UI friction, catalogue search, SKU-level complexity' },
+      { id: 'fi_time_per_grn', name: 'Time per GRN', unit: 'min', lowerIsBetter: true,
+        formula: 'Close GRN timestamp − GRN create timestamp',
+        weightBasis: 'Units in GRN',
+        diagnoses: 'GRN batch sizing, document readiness, vendor ASN quality' },
+      { id: 'fi_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within a GRN',
+        weightBasis: 'Units scanned',
+        diagnoses: 'Carton presentation, unpacking effort, scan ergonomics' },
+      { id: 'fi_exception_handling', name: 'Exception Handling Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'Exception (Short/RTV) resolution timestamp − exception raise timestamp',
+        weightBasis: 'Exception events',
+        diagnoses: 'Escalation path clarity, supervisor availability, decision latency' },
+      { id: 'fi_grn_reopen_lag', name: 'GRN Reopen Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'Reopen GRN timestamp − original Close GRN timestamp',
+        weightBasis: 'Reopen events',
+        diagnoses: 'First-time-right rate on GRN closure, data accuracy at submission' },
+    ],
+    outputMetrics: [
+      { id: 'fi_uph', name: 'Inward UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'fi_idle', name: 'Idle Time % (Inward)', unit: '%', lowerIsBetter: true },
+      { id: 'fi_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'fi_time_per_sku', output: 'fi_uph', sensitivity: 'TP90 −20 sec ≈ +5-8% Inward UPH' },
+      { lead: 'fi_time_per_grn', output: 'fi_uph', sensitivity: 'Avg −5 min ≈ +4-7% Inward UPH' },
+      { lead: 'fi_item_scan_interval', output: 'fi_uph', sensitivity: 'Avg −2 sec ≈ +3-5% Inward UPH' },
+      { lead: 'fi_exception_handling', output: 'fi_idle', sensitivity: 'TP90 −120 sec ≈ −2-3 pp Idle %' },
+      { lead: 'fi_grn_reopen_lag', output: 'fi_aux_pct', sensitivity: 'Reopen rate −5 pp ≈ −2-3 pp Auxiliary Task %' },
+    ],
+  },
+
+  sto_inward: {
+    leadIndicators: [
+      { id: 'si_time_per_box', name: 'Time per Box', unit: 'sec', lowerIsBetter: true,
+        formula: 'Total STO inward processing time / boxes processed',
+        weightBasis: 'Units per box',
+        diagnoses: 'Box handling, carton opening effort, mixed-SKU box complexity' },
+      { id: 'si_po_initiation_lag', name: 'PO Initiation Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'Inward Panel PO initiation timestamp − Auto GRN (PO details enter) timestamp',
+        weightBasis: 'POs',
+        diagnoses: 'Auto-GRN to panel handoff delay, PO queue prioritisation' },
+      { id: 'si_bin_scan_latency', name: 'Bin Scan Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan timestamp − Box code scan timestamp',
+        weightBasis: 'Units in box',
+        diagnoses: 'Bin allocation logic, travel to assigned bin, bin availability' },
+      { id: 'si_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within a box',
+        weightBasis: 'Units scanned',
+        diagnoses: 'Scan ergonomics, item handling, multi-qty entry' },
+      { id: 'si_exception_handling', name: 'Exception Handling Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'Exception (Short/RTV) resolution − exception raise timestamp',
+        weightBasis: 'Exception events',
+        diagnoses: 'Source-node dispatch accuracy, escalation latency' },
+    ],
+    outputMetrics: [
+      { id: 'si_uph', name: 'STO Inward UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'si_idle', name: 'Idle Time % (STO Inward)', unit: '%', lowerIsBetter: true },
+      { id: 'si_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'si_time_per_box', output: 'si_uph', sensitivity: 'TP90 −15 sec ≈ +6-9% STO Inward UPH' },
+      { lead: 'si_po_initiation_lag', output: 'si_idle', sensitivity: 'Avg −10 min ≈ −2-4 pp Idle %' },
+      { lead: 'si_bin_scan_latency', output: 'si_uph', sensitivity: 'Avg −8 sec ≈ +3-5% STO Inward UPH' },
+      { lead: 'si_item_scan_interval', output: 'si_uph', sensitivity: 'Avg −2 sec ≈ +3-4% STO Inward UPH' },
+      { lead: 'si_exception_handling', output: 'si_idle', sensitivity: 'TP90 −90 sec ≈ −1.5-2.5 pp Idle %' },
+    ],
+  },
+
+  rack_in: {
+    leadIndicators: [
+      { id: 'ri_time_at_bin', name: 'Time at Bin (Rack-In)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-out − Bin scan-in timestamp, per putaway bin visit',
+        weightBasis: 'Units placed at that bin',
+        diagnoses: 'Bin fill level, physical placement effort, bin height/access' },
+      { id: 'ri_time_to_bin', name: 'Time to Bin (Rack-In)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-in (bin N+1) − Bin scan-out (bin N)',
+        weightBasis: 'Units placed at destination bin',
+        diagnoses: 'Putaway path sequencing, bin allocation clustering, travel distance' },
+      { id: 'ri_rack_to_bin_latency', name: 'Rack-to-Bin Scan Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan timestamp − Rack scan timestamp',
+        weightBasis: 'Units in that rack visit',
+        diagnoses: 'Bin identification effort within rack, labelling clarity' },
+      { id: 'ri_merge_latency', name: 'Item-to-Bin Merge Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin merger (item to bin) timestamp − Bin scan timestamp',
+        weightBasis: 'Units merged',
+        diagnoses: 'System confirmation lag, consolidation decision time' },
+    ],
+    outputMetrics: [
+      { id: 'ri_uph', name: 'Rack In UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'ri_idle', name: 'Idle Time % (Rack In)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'ri_time_at_bin', output: 'ri_uph', sensitivity: 'TP90 −8 sec ≈ +5-8% Rack In UPH' },
+      { lead: 'ri_time_to_bin', output: 'ri_uph', sensitivity: 'TP90 −12 sec ≈ +6-10% Rack In UPH' },
+      { lead: 'ri_rack_to_bin_latency', output: 'ri_uph', sensitivity: 'Avg −4 sec ≈ +2-4% Rack In UPH' },
+      { lead: 'ri_merge_latency', output: 'ri_idle', sensitivity: 'Avg −5 sec ≈ −1-2 pp Idle %' },
+    ],
+  },
+
+  rto_receive: {
+    leadIndicators: [
+      { id: 'rr_time_per_shipment', name: 'Time per Shipment (RTO Receive)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive shipment/AWB scans',
+        weightBasis: 'Shipments received',
+        diagnoses: 'Bag opening effort, AWB legibility, sortation at receipt' },
+      { id: 'rr_scan_interval', name: 'AWB Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive AWB scans within a receiving batch',
+        weightBasis: 'Shipments in batch',
+        diagnoses: 'Scan ergonomics, courier bag presentation, batch staging' },
+    ],
+    outputMetrics: [
+      { id: 'rr_uph', name: 'RTO Receive UPH', unit: 'shipments/hr', lowerIsBetter: false },
+      { id: 'rr_idle', name: 'Idle Time % (RTO Receive)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rr_time_per_shipment', output: 'rr_uph', sensitivity: 'TP90 −5 sec ≈ +8-12% RTO Receive UPH' },
+      { lead: 'rr_scan_interval', output: 'rr_idle', sensitivity: 'Avg −3 sec ≈ −1-2 pp Idle %' },
+    ],
+  },
+
+  rto_inward: {
+    leadIndicators: [
+      { id: 'rin_time_at_bin', name: 'Time at Bin (RTO)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Close timestamp − Scan bin timestamp, per RTO bin session',
+        weightBasis: 'Items processed at that bin',
+        diagnoses: 'Disposition decision time, grading effort, bin organisation' },
+      { id: 'rin_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within an RTO session',
+        weightBasis: 'Items scanned',
+        diagnoses: 'Item inspection effort, packaging removal, quality assessment' },
+      { id: 'rin_photo_latency', name: 'Photo Capture Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Photo click timestamp − Item code scan timestamp',
+        weightBasis: 'Photo events',
+        diagnoses: 'Camera/app responsiveness, staging for photo, lighting setup' },
+      { id: 'rin_close_latency', name: 'Session Close Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Close timestamp − Last item code scan timestamp',
+        weightBasis: 'Sessions',
+        diagnoses: 'Confirmation friction, review step before close' },
+    ],
+    outputMetrics: [
+      { id: 'rin_uph', name: 'RTO Inward UPH', unit: 'items/hr', lowerIsBetter: false },
+      { id: 'rin_idle', name: 'Idle Time % (RTO Inward)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rin_time_at_bin', output: 'rin_uph', sensitivity: 'TP90 −20 sec ≈ +6-9% RTO Inward UPH' },
+      { lead: 'rin_item_scan_interval', output: 'rin_uph', sensitivity: 'Avg −5 sec ≈ +4-6% RTO Inward UPH' },
+      { lead: 'rin_photo_latency', output: 'rin_uph', sensitivity: 'Avg −5 sec ≈ +2-3% RTO Inward UPH' },
+      { lead: 'rin_close_latency', output: 'rin_idle', sensitivity: 'Avg −10 sec ≈ −1-2 pp Idle %' },
+    ],
+  },
+
+  rvp_inward: {
+    leadIndicators: [
+      { id: 'rvp_time_at_bin', name: 'Time at Bin (RVP Sellable)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Last item scan − Sellable bin scan timestamp, per bin session',
+        weightBasis: 'Items processed at that bin',
+        diagnoses: 'Sellable/return/reject decision latency, bin placement effort' },
+      { id: 'rvp_disposition_interval', name: 'Disposition Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans (Inward/Return/Reject)',
+        weightBasis: 'Items scanned',
+        diagnoses: 'Quality-grading decision time, disposition rule clarity' },
+    ],
+    outputMetrics: [
+      { id: 'rvp_uph', name: 'RVP Inward UPH', unit: 'items/hr', lowerIsBetter: false },
+      { id: 'rvp_idle', name: 'Idle Time % (RVP Inward)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rvp_time_at_bin', output: 'rvp_uph', sensitivity: 'TP90 −15 sec ≈ +5-8% RVP Inward UPH' },
+      { lead: 'rvp_disposition_interval', output: 'rvp_uph', sensitivity: 'Avg −4 sec ≈ +3-5% RVP Inward UPH' },
+    ],
+  },
+
+  audit: {
+    leadIndicators: [
+      { id: 'au_time_at_bin', name: 'Time at Bin (Audit)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Last item scan − Bin ID scan timestamp, per audited bin',
+        weightBasis: 'Units counted at that bin',
+        diagnoses: 'Bin density, count method, discrepancy investigation effort' },
+      { id: 'au_time_to_bin', name: 'Time to Bin (Audit)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin ID scan (bin N+1) − Last item scan (bin N)',
+        weightBasis: 'Units counted at destination bin',
+        diagnoses: 'Audit route sequencing, bin sampling spread, travel distance' },
+      { id: 'au_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within a bin count',
+        weightBasis: 'Units scanned',
+        diagnoses: 'Count technique, bin accessibility, SKU mix within bin' },
+    ],
+    outputMetrics: [
+      { id: 'au_bph', name: 'Audit BPH (Bins per Hour)', unit: 'bins/hr', lowerIsBetter: false },
+      { id: 'au_idle', name: 'Idle Time % (Audit)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'au_time_at_bin', output: 'au_bph', sensitivity: 'TP90 −30 sec ≈ +8-12% Audit BPH' },
+      { lead: 'au_time_to_bin', output: 'au_bph', sensitivity: 'TP90 −15 sec ≈ +5-8% Audit BPH' },
+      { lead: 'au_item_scan_interval', output: 'au_bph', sensitivity: 'Avg −2 sec ≈ +3-5% Audit BPH' },
+    ],
+  },
+
+  sto_pick_additional: {
+    leadIndicators: [
+      { id: 'sp_time_at_bin', name: 'Time at Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-out − Bin scan-in timestamp, per bin visit',
+        weightBasis: 'Units picked at that bin',
+        diagnoses: 'Bulk-pick quantity handling, bin congestion, SKU findability' },
+      { id: 'sp_time_to_bin', name: 'Time to Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-in (bin N+1) − Bin scan-out (bin N)',
+        weightBasis: 'Units picked at destination bin',
+        diagnoses: 'STO pick-path sequencing, zone spread, trolley manoeuvrability' },
+      { id: 'sp_assign_to_start_lag', name: 'Picklist Assign-to-Start Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'Picklist start timestamp − STO picklist assignment timestamp',
+        weightBasis: 'Units on picklist',
+        diagnoses: 'Assignment visibility to associate, queue prioritisation, floor comms' },
+      { id: 'sp_trolley_changeover', name: 'Trolley Changeover Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'First bin scan on new trolley − Last scan on previous trolley',
+        weightBasis: 'Units on new trolley',
+        diagnoses: 'Trolley availability, staging location, drop-off distance' },
+    ],
+    outputMetrics: [
+      { id: 'sp_uph', name: 'STO Pick UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'sp_idle', name: 'Idle Time % (STO Pick)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'sp_time_at_bin', output: 'sp_uph', sensitivity: 'TP90 −10 sec ≈ +5-8% STO Pick UPH' },
+      { lead: 'sp_time_to_bin', output: 'sp_uph', sensitivity: 'TP90 −12 sec ≈ +6-9% STO Pick UPH' },
+      { lead: 'sp_assign_to_start_lag', output: 'sp_idle', sensitivity: 'Avg −5 min ≈ −3-5 pp Idle %' },
+      { lead: 'sp_trolley_changeover', output: 'sp_idle', sensitivity: 'Avg −30 sec ≈ −1.5-2.5 pp Idle %' },
+    ],
+  },
+
+  sto_prepare: {
+    leadIndicators: [
+      { id: 'spr_time_per_shipment', name: 'Time per Shipment (STO Prepare)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Box code scan − Crate scan timestamp, per STO shipment',
+        weightBasis: 'Units in shipment',
+        diagnoses: 'Station layout, STO consignment complexity, material availability' },
+      { id: 'spr_item_scan_interval', name: 'Item Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code scans within a shipment',
+        weightBasis: 'Units scanned',
+        diagnoses: 'Scan technique, bulk-quantity entry, item handling' },
+      { id: 'spr_changeover', name: 'Crate Changeover Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'First scan on new crate − Last scan on previous crate',
+        weightBasis: 'Units on new crate',
+        diagnoses: 'Crate feed to station, staging discipline' },
+    ],
+    outputMetrics: [
+      { id: 'spr_uph', name: 'STO Prepare UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'spr_idle', name: 'Idle Time % (STO Prepare)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'spr_time_per_shipment', output: 'spr_uph', sensitivity: 'TP90 −15 sec ≈ +6-9% STO Prepare UPH' },
+      { lead: 'spr_item_scan_interval', output: 'spr_uph', sensitivity: 'Avg −2 sec ≈ +3-5% STO Prepare UPH' },
+      { lead: 'spr_changeover', output: 'spr_idle', sensitivity: 'Avg −25 sec ≈ −1.5-2 pp Idle %' },
+    ],
+  },
+
+  sto_pack: {
+    leadIndicators: [
+      { id: 'spk_time_per_box', name: 'Time per Box (Pack)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Weight capture timestamp − Box ID scan timestamp, per box',
+        weightBasis: 'Units in box',
+        diagnoses: 'Packing method, void fill, box-size selection, sealing effort' },
+      { id: 'spk_lbh_latency', name: 'LBH Capture Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'LBH timestamp − Box ID scan timestamp',
+        weightBasis: 'Boxes',
+        diagnoses: 'Manual measurement vs Cubiscan automation, entry friction' },
+      { id: 'spk_weight_latency', name: 'Weight Capture Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Weight timestamp − LBH timestamp',
+        weightBasis: 'Boxes',
+        diagnoses: 'Scale integration, box transfer to scale, manual entry' },
+      { id: 'spk_cons_changeover', name: 'Consignment Changeover Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'First box scan on new consignment − Last scan on previous consignment',
+        weightBasis: 'Boxes in new consignment',
+        diagnoses: 'Consignment staging, ID assignment lag, station reset' },
+    ],
+    outputMetrics: [
+      { id: 'spk_bph', name: 'STO Pack BPH (Boxes per Hour)', unit: 'boxes/hr', lowerIsBetter: false },
+      { id: 'spk_idle', name: 'Idle Time % (STO Pack)', unit: '%', lowerIsBetter: true },
+      { id: 'spk_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'spk_time_per_box', output: 'spk_bph', sensitivity: 'TP90 −20 sec ≈ +7-11% STO Pack BPH' },
+      { lead: 'spk_lbh_latency', output: 'spk_aux_pct', sensitivity: 'Avg −8 sec ≈ −2-3 pp Auxiliary Task % (Cubiscan automation)' },
+      { lead: 'spk_weight_latency', output: 'spk_aux_pct', sensitivity: 'Avg −5 sec ≈ −1.5-2.5 pp Auxiliary Task %' },
+      { lead: 'spk_cons_changeover', output: 'spk_idle', sensitivity: 'Avg −40 sec ≈ −2-3 pp Idle %' },
+    ],
+  },
+
+  sto_dispatch: {
+    leadIndicators: [
+      { id: 'sd_box_scan_interval', name: 'Box Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive box ID scans at STO dispatch',
+        weightBasis: 'Boxes dispatched',
+        diagnoses: 'Loading sequence, dock staging, vehicle readiness' },
+      { id: 'sd_awb_select_latency', name: 'AWB Select-to-Scan Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'First box ID scan − Consignment/Master AWB selection timestamp',
+        weightBasis: 'Boxes in consignment',
+        diagnoses: 'Manifest readiness, AWB generation lag, carrier documentation' },
+    ],
+    outputMetrics: [
+      { id: 'sd_bph', name: 'STO Dispatch BPH', unit: 'boxes/hr', lowerIsBetter: false },
+      { id: 'sd_idle', name: 'Idle Time % (STO Dispatch)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'sd_box_scan_interval', output: 'sd_bph', sensitivity: 'TP90 −6 sec ≈ +9-13% STO Dispatch BPH' },
+      { lead: 'sd_awb_select_latency', output: 'sd_idle', sensitivity: 'Avg −90 sec ≈ −2-4 pp Idle %' },
+    ],
+  },
+
+  receiving_panel: {
+    leadIndicators: [
+      { id: 'rp_time_per_box', name: 'Time per Box (Receiving)', unit: 'sec', lowerIsBetter: true,
+        formula: 'Confirm timestamp − Box ID timestamp, per box',
+        weightBasis: 'Boxes confirmed',
+        diagnoses: 'Verification depth, box condition checks, discrepancy handling' },
+      { id: 'rp_box_scan_interval', name: 'Box Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive box ID scans within a receipt',
+        weightBasis: 'Boxes in receipt',
+        diagnoses: 'Unloading feed rate, box presentation, dock layout' },
+      { id: 'rp_receipt_start_lag', name: 'Receipt Start Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'First box ID scan − New receipt start timestamp',
+        weightBasis: 'Receipts',
+        diagnoses: 'Consignment ID entry friction, vehicle-to-dock readiness' },
+    ],
+    outputMetrics: [
+      { id: 'rp_bph', name: 'Receiving Panel BPH', unit: 'boxes/hr', lowerIsBetter: false },
+      { id: 'rp_idle', name: 'Idle Time % (Receiving Panel)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rp_time_per_box', output: 'rp_bph', sensitivity: 'TP90 −10 sec ≈ +8-12% Receiving Panel BPH' },
+      { lead: 'rp_box_scan_interval', output: 'rp_bph', sensitivity: 'Avg −4 sec ≈ +4-6% Receiving Panel BPH' },
+      { lead: 'rp_receipt_start_lag', output: 'rp_idle', sensitivity: 'Avg −8 min ≈ −3-5 pp Idle %' },
+    ],
+  },
+
+  rts_b2b: {
+    leadIndicators: [
+      { id: 'rb_assign_to_start_lag', name: 'Picklist Assign-to-Start Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'Pick list start timestamp − Picklist assign timestamp',
+        weightBasis: 'Units on picklist',
+        diagnoses: 'Assignment visibility, RTS batch prioritisation, floor comms' },
+      { id: 'rb_creation_to_assign_lag', name: 'Creation-to-Assign Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'Picklist assign timestamp − Picklist creation timestamp',
+        weightBasis: 'Picklists',
+        diagnoses: 'Supervisor allocation cadence, manpower availability at RTS' },
+      { id: 'rb_pack_cycle', name: 'Prepare-and-Pack Cycle Time', unit: 'sec', lowerIsBetter: true,
+        formula: 'Box code scan − Crate scan timestamp, per B2B shipment',
+        weightBasis: 'Units in shipment',
+        diagnoses: 'B2B carton standards, palletisation effort, labelling requirements' },
+    ],
+    outputMetrics: [
+      { id: 'rb_uph', name: 'RTS B2B UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'rb_idle', name: 'Idle Time % (RTS B2B)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rb_assign_to_start_lag', output: 'rb_idle', sensitivity: 'Avg −6 min ≈ −3-5 pp Idle %' },
+      { lead: 'rb_creation_to_assign_lag', output: 'rb_idle', sensitivity: 'Avg −10 min ≈ −2-4 pp Idle %' },
+      { lead: 'rb_pack_cycle', output: 'rb_uph', sensitivity: 'TP90 −20 sec ≈ +6-9% RTS B2B UPH' },
+    ],
+  },
+
+  rts_b2c: {
+    leadIndicators: [
+      { id: 'rc_collation_interval', name: 'Collation Scan Interval', unit: 'sec', lowerIsBetter: true,
+        formula: 'Mean gap between consecutive item code + crate scans during collation',
+        weightBasis: 'Units collated',
+        diagnoses: 'Sortation logic clarity, crate accessibility, item identification' },
+      { id: 'rc_crate_alloc_latency', name: 'Crate Allocation Latency', unit: 'sec', lowerIsBetter: true,
+        formula: 'Crate allocation scan (Rack x Crate mapping) − RTS box receive timestamp',
+        weightBasis: 'Units in box',
+        diagnoses: 'Rack-crate mapping availability, allocation decision time' },
+      { id: 'rc_putaway_time_at_rack', name: 'Putaway Time at Rack', unit: 'sec', lowerIsBetter: true,
+        formula: 'Trolley scan − Rack scan timestamp, per putaway rack visit',
+        weightBasis: 'Units placed at that rack',
+        diagnoses: 'Rack fill level, placement effort, bin-level organisation' },
+      { id: 'rc_putaway_time_to_rack', name: 'Putaway Time to Rack', unit: 'sec', lowerIsBetter: true,
+        formula: 'Rack scan (rack N+1) − Trolley scan (rack N)',
+        weightBasis: 'Units placed at destination rack',
+        diagnoses: 'Putaway route sequencing, rack clustering, travel distance' },
+      { id: 'rc_standby_bin_dwell', name: 'Stand-by Bin Dwell', unit: 'min', lowerIsBetter: true,
+        formula: 'Putaway crate scan − Stand-by bin addition timestamp',
+        weightBasis: 'Units held in stand-by',
+        diagnoses: 'Exception resolution speed, stand-by queue discipline' },
+    ],
+    outputMetrics: [
+      { id: 'rc_uph', name: 'RTS B2C UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'rc_idle', name: 'Idle Time % (RTS B2C)', unit: '%', lowerIsBetter: true },
+      { id: 'rc_aux_pct', name: 'Auxiliary Task %', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rc_collation_interval', output: 'rc_uph', sensitivity: 'Avg −3 sec ≈ +4-6% RTS B2C UPH' },
+      { lead: 'rc_crate_alloc_latency', output: 'rc_aux_pct', sensitivity: 'Avg −15 sec ≈ −2-3 pp Auxiliary Task %' },
+      { lead: 'rc_putaway_time_at_rack', output: 'rc_uph', sensitivity: 'TP90 −10 sec ≈ +5-8% RTS B2C UPH' },
+      { lead: 'rc_putaway_time_to_rack', output: 'rc_uph', sensitivity: 'TP90 −12 sec ≈ +5-8% RTS B2C UPH' },
+      { lead: 'rc_standby_bin_dwell', output: 'rc_idle', sensitivity: 'TP90 −20 min ≈ −2-4 pp Idle %' },
+    ],
+  },
+
+  red_channel: {
+    leadIndicators: [
+      { id: 'rch_time_at_bin', name: 'Time at Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-out − Bin scan-in timestamp, per bin visit',
+        weightBasis: 'Units picked at that bin',
+        diagnoses: 'High-value item handling protocol, verification steps, bin security' },
+      { id: 'rch_time_to_bin', name: 'Time to Bin', unit: 'sec', lowerIsBetter: true,
+        formula: 'Bin scan-in (bin N+1) − Bin scan-out (bin N)',
+        weightBasis: 'Units picked at destination bin',
+        diagnoses: 'Red-channel zone layout, escorted-movement overhead' },
+      { id: 'rch_assign_to_start_lag', name: 'Picklist Assign-to-Start Lag', unit: 'min', lowerIsBetter: true,
+        formula: 'First bin scan − Picklist assign timestamp',
+        weightBasis: 'Units on picklist',
+        diagnoses: 'Authorisation lag, restricted-access approval, supervisor availability' },
+    ],
+    outputMetrics: [
+      { id: 'rch_uph', name: 'Red Channel UPH', unit: 'units/hr', lowerIsBetter: false },
+      { id: 'rch_idle', name: 'Idle Time % (Red Channel)', unit: '%', lowerIsBetter: true },
+    ],
+    linkages: [
+      { lead: 'rch_time_at_bin', output: 'rch_uph', sensitivity: 'TP90 −12 sec ≈ +5-8% Red Channel UPH' },
+      { lead: 'rch_time_to_bin', output: 'rch_uph', sensitivity: 'TP90 −10 sec ≈ +4-7% Red Channel UPH' },
+      { lead: 'rch_assign_to_start_lag', output: 'rch_idle', sensitivity: 'Avg −8 min ≈ −3-5 pp Idle %' },
+    ],
+  },
+
+};
+
+
+// ============================================================================
+// PE STATS ENGINE
+// Generates seeded observation samples per lead indicator and computes the
+// three statistical treatments plus DoD / WoW movement and a 14-day trend.
+// In production these read from the granular timestamp tables (Section 5.0);
+// here they are reproducible mock observations for the mock-up.
+// ============================================================================
+
+// Baseline central value by unit type, so mock numbers are plausible per metric
+function baselineFor(unit, seedRng) {
+  if (unit === 'sec') return 20 + seedRng() * 70;      // 20-90 sec
+  if (unit === 'min') return 3 + seedRng() * 14;       // 3-17 min
+  if (unit === '%') return 4 + seedRng() * 10;         // 4-14 %
+  return 30 + seedRng() * 60;
+}
+
+// Generate N observations with a right-skewed (log-normal-ish) shape, which is
+// how process time data actually distributes — a long slow tail. This is what
+// makes TP90 diverge meaningfully from the average.
+function generateObservations(baseline, n, rng) {
+  const obs = [];
+  for (let i = 0; i < n; i++) {
+    // sum of uniforms -> approx normal, then exponentiate the tail
+    let z = (rng() + rng() + rng() + rng() - 2) / 2; // approx N(0, ~0.29)
+    const skew = rng() < 0.12 ? 1 + rng() * 1.8 : 1; // 12% chance of a slow-tail event
+    const value = Math.max(1, baseline * (1 + z * 0.35) * skew);
+    const units = Math.max(1, Math.round(1 + rng() * 11)); // units processed in this observation
+    obs.push({ value, units });
+  }
+  return obs;
+}
+
+function mean(obs) {
+  if (!obs.length) return 0;
+  return obs.reduce((s, o) => s + o.value, 0) / obs.length;
+}
+
+function weightedMean(obs) {
+  if (!obs.length) return 0;
+  const totalW = obs.reduce((s, o) => s + o.units, 0);
+  if (!totalW) return mean(obs);
+  return obs.reduce((s, o) => s + o.value * o.units, 0) / totalW;
+}
+
+// 90th percentile — 90% of observations fall at or below this value.
+// Linear interpolation between closest ranks.
+function percentile(obs, p) {
+  if (!obs.length) return 0;
+  const sorted = obs.map(o => o.value).sort((a, b) => a - b);
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+function fmt(v, unit) {
+  if (unit === 'min') return v.toFixed(1);
+  if (unit === '%') return v.toFixed(1);
+  return Math.round(v);
+}
+
+// Compute a full stat block for one lead indicator across a 14-day window.
+// Returns today's avg/wtdAvg/tp90, prior-day values (for DoD), prior-week
+// averages (for WoW), and the 14-day series of each treatment.
+function computeLeadIndicatorStats(indicator, seedKey, mulberry32, strSeed) {
+  const seedRng = mulberry32(strSeed('pe-base:' + seedKey + ':' + indicator.id));
+  const baseline = baselineFor(indicator.unit, seedRng);
+
+  const days = 14;
+  const series = { avg: [], wtdAvg: [], tp90: [] };
+  // Gentle improving drift across the window so DoD/WoW movement is realistic
+  for (let d = 0; d < days; d++) {
+    const dayRng = mulberry32(strSeed('pe-day:' + seedKey + ':' + indicator.id + ':' + d));
+    const drift = 1 + (days - d) * 0.006;              // slight improvement over time
+    const noise = 0.94 + dayRng() * 0.12;
+    const obs = generateObservations(baseline * drift * noise, 60, dayRng);
+    series.avg.push(mean(obs));
+    series.wtdAvg.push(weightedMean(obs));
+    series.tp90.push(percentile(obs, 90));
+  }
+
+  const last = a => a[a.length - 1];
+  const prev = a => a[a.length - 2];
+  const thisWeek = a => a.slice(-7).reduce((s, v) => s + v, 0) / 7;
+  const priorWeek = a => a.slice(-14, -7).reduce((s, v) => s + v, 0) / 7;
+
+  function pctChange(cur, base) {
+    if (!base) return 0;
+    return ((cur - base) / base) * 100;
+  }
+
+  return {
+    unit: indicator.unit,
+    lowerIsBetter: indicator.lowerIsBetter !== false,
+    avg: last(series.avg),
+    wtdAvg: last(series.wtdAvg),
+    tp90: last(series.tp90),
+    avgPrev: prev(series.avg),
+    tp90Prev: prev(series.tp90),
+    dodAvg: pctChange(last(series.avg), prev(series.avg)),
+    dodTp90: pctChange(last(series.tp90), prev(series.tp90)),
+    wowAvg: pctChange(thisWeek(series.avg), priorWeek(series.avg)),
+    wowTp90: pctChange(thisWeek(series.tp90), priorWeek(series.tp90)),
+    series,
+  };
+}
+
+// Output (lag) metric stats — same cadence treatment, direction-aware
+function computeOutputMetricStats(metric, seedKey, mulberry32, strSeed) {
+  const seedRng = mulberry32(strSeed('pe-out:' + seedKey + ':' + metric.id));
+  const days = 14;
+  const isRate = metric.unit.includes('/hr');
+  const baseline = isRate ? 260 + seedRng() * 420 : 5 + seedRng() * 12;
+  const series = [];
+  for (let d = 0; d < days; d++) {
+    const dayRng = mulberry32(strSeed('pe-outday:' + seedKey + ':' + metric.id + ':' + d));
+    // rates drift up, loss metrics drift down, over the window
+    const drift = isRate ? 1 + d * 0.004 : 1 - d * 0.004;
+    series.push(baseline * drift * (0.95 + dayRng() * 0.1));
+  }
+  const last = series[series.length - 1], prev = series[series.length - 2];
+  const tw = series.slice(-7).reduce((s, v) => s + v, 0) / 7;
+  const pw = series.slice(-14, -7).reduce((s, v) => s + v, 0) / 7;
+  return {
+    unit: metric.unit,
+    lowerIsBetter: metric.lowerIsBetter !== false,
+    current: last,
+    dod: prev ? ((last - prev) / prev) * 100 : 0,
+    wow: pw ? ((tw - pw) / pw) * 100 : 0,
+    series,
+  };
+}
+
+
+// ============================================================================
+// MOCK DATA GENERATION — seeded (mulberry32) for reproducibility
+// ============================================================================
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function strSeed(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (Math.imul(31, h) + str.charCodeAt(i)) | 0; }
+  return h;
+}
+function rnd(rng, min, max) { return Math.floor(rng() * (max - min + 1)) + min; }
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+
+// Resolve "inherit" timestamp entries to the referenced group's list
+function resolveTimestamps(groupKey) {
+  const g = TIMESTAMP_GROUPS[groupKey];
+  if (!g) return [];
+  const out = [];
+  g.timestamps.forEach(t => {
+    if (t.status === 'inherit') {
+      const ref = TIMESTAMP_GROUPS[t.source];
+      if (ref) out.push(...ref.timestamps.filter(rt => rt.status !== 'inherit'));
+    } else {
+      out.push(t);
+    }
+  });
+  return out;
+}
+
+// Resolve timestamps across one or more groups (concatenated in order), tagging
+// each with its origin group label so a multi-stage process (e.g. IWT Packing =
+// STO Prepare + STO Pack + STO Dispatch) reads as one continuous work-unit chain.
+function resolveTimestampsMulti(groupKeys) {
+  const keys = Array.isArray(groupKeys) ? groupKeys : [groupKeys];
+  const out = [];
+  keys.forEach(k => {
+    const label = TIMESTAMP_GROUPS[k] ? TIMESTAMP_GROUPS[k].label : k;
+    resolveTimestamps(k).forEach(t => out.push({ ...t, groupLabel: label }));
+  });
+  return out;
+}
+
+// Build N sample chronological event chains for one or more tsGroups (for drill-down display)
+function buildEventChains(groupKeys, n, seed) {
+  const keys = Array.isArray(groupKeys) ? groupKeys : [groupKeys];
+  const rng = mulberry32(strSeed(keys.join('+') + ':' + seed));
+  const tsList = resolveTimestampsMulti(keys);
+  const chains = [];
+  for (let i = 0; i < n; i++) {
+    let t = rnd(rng, 7 * 3600, 18 * 3600); // seconds since midnight, 7AM-6PM start
+    const events = [];
+    tsList.forEach((ts, idx) => {
+      if (idx > 0) t += rnd(rng, 8, 95); // gap between consecutive scans, 8-95s
+      events.push({
+        name: ts.name,
+        status: ts.status,
+        source: ts.source,
+        groupLabel: ts.groupLabel,
+        atSec: t,
+        atLabel: secToClock(t),
+      });
+    });
+    // deltas
+    for (let j = 1; j < events.length; j++) {
+      events[j].deltaSec = events[j].atSec - events[j - 1].atSec;
+    }
+    chains.push({ id: `WU-${rnd(rng, 10000, 99999)}`, events });
+  }
+  return chains;
+}
+
+function secToClock(s) {
+  const h = Math.floor(s / 3600) % 24, m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+  return [h, m, sec].map(x => String(x).padStart(2, '0')).join(':');
+}
+
+// quick smoke test
+
+// ============================================================================
+// APPLICATION LOGIC
+// ============================================================================
+
+// Flatten taxonomy into a lookup list with computed IDs
+const ALL_PROCESSES = [];
+TAXONOMY.forEach(d => {
+  d.processes.forEach(p => {
+    ALL_PROCESSES.push({ dept: d.dept, ...p });
+  });
+});
+const ACTIVE_PROCESSES = ALL_PROCESSES.filter(p => p.status === 'active');
+
+// ---- Mock volume/hours/rate per active process (seeded, deterministic) ----
+const PROC_MOCK = {};
+(function seedProcessMocks() {
+  ACTIVE_PROCESSES.forEach(p => {
+    const rng = mulberry32(strSeed('procmock:' + p.name));
+    const target = rnd(rng, 350, 950);
+    const hc = rnd(rng, 3, 18);
+    const hours = +(hc * (6 + rng() * 2)).toFixed(1);
+    const rateFactor = 0.65 + rng() * 0.55; // 0.65x - 1.2x of target
+    const volume = Math.round(hours * target * rateFactor);
+    PROC_MOCK[p.name] = { volume, hours, target, hc };
+  });
+})();
+
+// ---- Mock employees per active process ----
+const NAMES = ["Ravi Kumar","Priya Sharma","Ajay Singh","Neha Patel","Vikram Reddy","Anjali Gupta","Suresh Yadav","Pooja Mehta","Deepak Joshi","Arjun Nair","Kavita Desai","Rahul Verma","Sanjay Mishra","Meera Iyer","Rohit Chauhan","Nisha Saxena","Karthik Rao","Divya Menon","Amit Bose","Sneha Kulkarni"];
+const EMPLOYEES = [];
+let empSeq = 1;
+ACTIVE_PROCESSES.forEach(p => {
+  const rng = mulberry32(strSeed('emp:' + p.name));
+  const n = PROC_MOCK[p.name].hc;
+  for (let i = 0; i < n; i++) {
+    const name = pick(rng, NAMES);
+    const units = rnd(rng, 80, 2600);
+    const direct = +(rng() * 4 + 0.4).toFixed(2);
+    const inferred = +(rng() * 0.55 + 0.08).toFixed(2);
+    const total = +(direct + inferred).toFixed(2);
+    const target = PROC_MOCK[p.name].target;
+    const uph = Math.round(units / direct);
+    EMPLOYEES.push({
+      id: `PRP${String(empSeq++).padStart(3, '0')}`, name, process: p.name, dept: p.dept,
+      units, direct, inferred, total,
+      pctInferred: +((inferred / total) * 100).toFixed(1),
+      uph, target, pct: Math.round((uph / target) * 100),
+    });
+  }
+});
+
+// ---- Populate process selectors ----
+function populateProcessSelectors() {
+  const sel = document.getElementById('processSelect');
+  sel.innerHTML = TAXONOMY.map(d => {
+    const opts = d.processes.filter(p => p.status === 'active').map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    return opts ? `<optgroup label="${d.dept}">${opts}</optgroup>` : '';
+  }).join('');
+
+  // Lead Indicators uses the same process-path list as Process Inspector (not raw
+  // timestamp groups) since several processes combine multiple groups (e.g. IWT
+  // Packing = STO Prepare + STO Pack + STO Dispatch) — a per-process view is what
+  // reads correctly to an AM/TL, with the underlying group(s) shown as a sub-label.
+  const leadSel = document.getElementById('leadFunctionSelect');
+  leadSel.innerHTML = TAXONOMY.map(d => {
+    const opts = d.processes.filter(p => p.status === 'active').map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    return opts ? `<optgroup label="${d.dept}">${opts}</optgroup>` : '';
+  }).join('');
+
+  const rawSel = document.getElementById('rawProcess');
+  rawSel.innerHTML = '<option value="all">All Processes</option>' + ACTIVE_PROCESSES.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+}
+
+// ---- Tab switching ----
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'process') renderProcessInspector();
+  if (tab === 'lead') renderLeadIndicators();
+  if (tab === 'indirect') renderIndirectTaskManagement();
+  if (tab === 'raw') applyRawFilters();
+}
+
+function applyFilters() { renderAll(); }
+function resetFilters() {
+  document.getElementById('filterWH').value = 'WH10';
+  document.getElementById('filterCluster').value = 'South';
+  document.getElementById('filterPeriod').value = 'day';
+  document.getElementById('filterDate').value = '2026-08-19';
+  document.getElementById('filterShift').value = 'all';
+  renderAll();
+}
+
+function renderAll() {
+  populateProcessSelectors();
+  renderKPIs(); renderThroughputTable(); renderHeatmap();
+  renderUPHTrend(); renderSiteCompare(); renderEmployeeTable();
+  renderNetworkPERollup();
+}
+
+// ---- KPI Cards (active processes only) ----
+function renderKPIs() {
+  const totalVol = ACTIVE_PROCESSES.reduce((s, p) => s + PROC_MOCK[p.name].volume, 0);
+  const totalHrs = ACTIVE_PROCESSES.reduce((s, p) => s + PROC_MOCK[p.name].hours, 0);
+  const totalHC = ACTIVE_PROCESSES.reduce((s, p) => s + PROC_MOCK[p.name].hc, 0);
+  const avgUPH = Math.round(totalVol / totalHrs);
+  const avgPct = Math.round(ACTIVE_PROCESSES.reduce((s, p) => {
+    const m = PROC_MOCK[p.name];
+    return s + (Math.round(m.volume / m.hours) / m.target * 100);
+  }, 0) / ACTIVE_PROCESSES.length);
+  const calmCount = ALL_PROCESSES.filter(p => p.status === 'calm_pending').length;
+  const html = `
+    <div class="kpi-card"><div class="kpi-label">Total Volume</div><div class="kpi-value">${totalVol.toLocaleString()}</div><div class="kpi-sub">across ${ACTIVE_PROCESSES.length} active process paths</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Active Headcount</div><div class="kpi-value">${totalHC}</div><div class="kpi-sub">scan-tracked associates</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg UPH</div><div class="kpi-value">${avgUPH}</div><div class="kpi-sub">weighted across active paths</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Total Hours</div><div class="kpi-value">${totalHrs.toFixed(0)}</div><div class="kpi-sub">direct hours worked</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg % to Target</div><div class="kpi-value">${avgPct}%</div><div class="kpi-sub">active processes only</div></div>
+    <div class="kpi-card red"><div class="kpi-label">CALM-Pending Paths</div><div class="kpi-value">${calmCount}</div><div class="kpi-sub">awaiting CALM Code framework</div></div>
+  `;
+  document.getElementById('kpiCards').innerHTML = html;
+  document.getElementById('throughputBadgeDate').textContent = document.getElementById('filterDate').value;
+}
+
+// ---- Process Throughput table (full taxonomy, 7 depts) ----
+function renderThroughputTable() {
+  let html = '<thead><tr><th>Department</th><th>Process Path</th><th class="text-right">Volume</th><th class="text-right">Hours</th><th class="text-right">Rate (UPH)</th><th class="text-right">Target</th><th class="text-right">Target Hrs</th><th class="text-right">Delta Hrs</th><th class="text-center">% to Target</th><th class="text-center">HC</th><th class="text-center">Status</th></tr></thead><tbody>';
+  TAXONOMY.forEach(d => {
+    const activeInDept = d.processes.filter(p => p.status === 'active');
+    const deptVol = activeInDept.reduce((s, p) => s + PROC_MOCK[p.name].volume, 0);
+    const deptHrs = activeInDept.reduce((s, p) => s + PROC_MOCK[p.name].hours, 0);
+    const deptHC = activeInDept.reduce((s, p) => s + PROC_MOCK[p.name].hc, 0);
+    html += `<tr class="dept-row"><td colspan="2">${d.dept}</td><td class="text-right bold">${activeInDept.length ? deptVol.toLocaleString() : '—'}</td><td class="text-right bold">${activeInDept.length ? deptHrs.toFixed(1) : '—'}</td><td class="text-right bold">${activeInDept.length ? Math.round(deptVol / deptHrs) : '—'}</td><td></td><td></td><td></td><td></td><td class="text-center bold">${deptHC || '—'}</td><td></td></tr>`;
+
+    d.processes.forEach(p => {
+      if (p.status === 'active') {
+        const m = PROC_MOCK[p.name];
+        const rate = Math.round(m.volume / m.hours);
+        const targetHrs = +(m.volume / m.target).toFixed(1);
+        const delta = +(targetHrs - m.hours).toFixed(1);
+        const pct = Math.round(rate / m.target * 100);
+        const badge = pct >= 100 ? 'badge-green' : pct >= 80 ? 'badge-orange' : 'badge-red';
+        html += `<tr style="cursor:pointer" onclick="jumpToProcessInspector('${p.name}')"><td></td><td class="bold">${p.name}${p.stage ? `<div style="font-weight:400;font-size:10.5px;color:var(--gray-400);">${p.stage}</div>` : ''}</td><td class="text-right">${m.volume.toLocaleString()}</td><td class="text-right">${m.hours.toFixed(1)}</td><td class="text-right bold">${rate}</td><td class="text-right">${m.target}</td><td class="text-right">${targetHrs}</td><td class="text-right" style="color:${delta >= 0 ? 'var(--green)' : 'var(--red)'}">${delta >= 0 ? '+' : ''}${delta}</td><td class="text-center"><span class="${badge}">${pct}%</span></td><td class="text-center">${m.hc}</td><td class="text-center"><span class="badge-green" style="background:var(--green-light);color:var(--green);">ACTIVE</span></td></tr>`;
+      } else if (p.status === 'calm_pending') {
+        html += `<tr class="calm-row"><td></td><td class="bold">${p.name}</td><td class="text-right" colspan="7" style="text-align:center;color:var(--gray-500);">Not tracked — no scan timestamps or CALM session data available today</td><td class="text-center"><span class="badge-calm">CALM PENDING</span></td></tr>`;
+      } else if (p.status === 'quality_ref') {
+        html += `<tr class="calm-row"><td></td><td class="bold">${p.name}</td><td colspan="7" style="text-align:center;color:var(--gray-500);">Outcome quality metric — reported via ICQA quality dashboards, not a labor process path</td><td class="text-center"><span class="badge-quality">QUALITY KPI</span></td></tr>`;
+      } else if (p.status === 'system_computed') {
+        html += `<tr class="calm-row"><td></td><td class="bold">${p.name}</td><td colspan="7" style="text-align:center;color:var(--gray-500);">System-computed allocation step — no associate scan action</td><td class="text-center"><span class="badge-system">SYSTEM</span></td></tr>`;
+      }
+    });
+
+    if (activeInDept.length) {
+      html += `<tr class="tph-row"><td colspan="2">${d.dept} TPH (Active Paths)</td><td class="text-right">${deptVol.toLocaleString()}</td><td class="text-right">${deptHrs.toFixed(1)}</td><td class="text-right">${Math.round(deptVol / deptHrs)}</td><td></td><td></td><td></td><td></td><td>${deptHC}</td></tr>`;
+    }
+  });
+  html += '</tbody>';
+  document.getElementById('throughputTable').innerHTML = html;
+}
+
+function jumpToProcessInspector(name) {
+  document.querySelectorAll('.tab-btn')[1].click();
+  document.getElementById('processSelect').value = name;
+  renderProcessInspector();
+}
+
+// ---- Heatmap (active processes only) ----
+function renderHeatmap() {
+  const hours = ['7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM'];
+  const procs = ACTIVE_PROCESSES.slice(0, 10).map(p => p.name);
+  let html = '<table><thead><tr><th>Process</th>';
+  hours.forEach(h => html += `<th class="text-center">${h}</th>`);
+  html += '</tr></thead><tbody>';
+  procs.forEach(proc => {
+    const rng = mulberry32(strSeed('heat:' + proc));
+    html += `<tr><td class="bold">${proc}</td>`;
+    hours.forEach(() => {
+      const val = rnd(rng, 100, 900);
+      const intensity = Math.min(val / 900, 1);
+      const r = Math.round(248 - intensity * 100), g = Math.round(242 - intensity * 130), b = Math.round(252 - intensity * 60);
+      html += `<td class="text-center" style="background:rgb(${r},${g},${b});color:${intensity > 0.6 ? 'white' : 'var(--gray-700)'};font-size:12px;font-weight:600;">${val}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('heatmapContainer').innerHTML = html;
+}
+
+// ---- Charts ----
+let uphChart, siteChart, procHourlyChart, procTrendChart, leadChart;
+
+function renderUPHTrend() {
+  const ctx = document.getElementById('uphTrendChart').getContext('2d');
+  if (uphChart) uphChart.destroy();
+  const labels = ['13 Aug','14 Aug','15 Aug','16 Aug','17 Aug','18 Aug','19 Aug'];
+  const top4 = ACTIVE_PROCESSES.slice(0, 4);
+  const colors = ['#9B59B6', '#3498DB', '#27AE60', '#F39C12'];
+  uphChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: top4.map((p, i) => {
+        const rng = mulberry32(strSeed('trend:' + p.name));
+        const base = PROC_MOCK[p.name].target;
+        return { label: p.name, data: labels.map(() => Math.round(base * (0.8 + rng() * 0.4))), borderColor: colors[i], backgroundColor: colors[i] + '22', tension: 0.3, fill: true };
+      })
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: false, title: { display: true, text: 'UPH' } } } }
+  });
+}
+
+function renderSiteCompare() {
+  const ctx = document.getElementById('siteCompareChart').getContext('2d');
+  if (siteChart) siteChart.destroy();
+  const sites = ['WH4 Gurgaon', 'WH10 Bengaluru', 'WH28 Hyderabad', 'WH29 Kochi', 'WH42 Coimbatore'];
+  const rng = mulberry32(strSeed('sitecompare'));
+  siteChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: sites, datasets: [{ label: 'Avg UPH (Active Paths)', data: sites.map(() => rnd(rng, 380, 560)), backgroundColor: ['#9B59B6', '#B07CC6', '#7E4DAB', '#DBC2E6', '#6D3D96'], borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'UPH' } } } }
+  });
+}
+
+// ---- Process Inspector ----
+function renderProcessInspector() {
+  const name = document.getElementById('processSelect').value;
+  const proc = ALL_PROCESSES.find(p => p.name === name);
+  document.getElementById('processName').textContent = name;
+  const badgeEl = document.getElementById('processStatusBadge');
+  if (!proc || proc.status !== 'active') {
+    badgeEl.innerHTML = '';
+    document.getElementById('processTable').innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--gray-400);">Not applicable for this process.</td></tr></tbody>';
+    return;
+  }
+  badgeEl.innerHTML = proc.tsGroups.map(g => `<span class="badge-green">${TIMESTAMP_GROUPS[g].label}</span>`).join(' ');
+  const target = PROC_MOCK[name].target;
+  const emps = EMPLOYEES.filter(e => e.process === name).sort((a, b) => b.uph - a.uph);
+  let html = '<thead><tr><th>Emp ID</th><th>Name</th><th class="text-right">Units</th><th class="text-right">Hrs (Direct)</th><th class="text-right">Hrs (Inferred)</th><th class="text-right">Hrs (Total)</th><th class="text-right">UPH</th><th class="text-right">Target</th><th class="text-center">% to Target</th><th class="text-center">% Inferred</th></tr></thead><tbody>';
+  emps.forEach(e => {
+    const badge = e.pct >= 100 ? 'badge-green' : e.pct >= 70 ? 'badge-orange' : 'badge-red';
+    html += `<tr><td class="bold" style="color:var(--purple-700)">${e.id}</td><td>${e.name}</td><td class="text-right">${e.units.toLocaleString()}</td><td class="text-right">${e.direct}</td><td class="text-right">${e.inferred}</td><td class="text-right">${e.total}</td><td class="text-right bold">${e.uph}</td><td class="text-right">${target}</td><td class="text-center"><span class="${badge}">${e.pct}%</span></td><td class="text-center">${e.pctInferred}%</td></tr>`;
+  });
+  if (emps.length === 0) html += '<tr><td colspan="10" style="text-align:center;color:var(--gray-400);">No associates in this process</td></tr>';
+  html += '</tbody>';
+  document.getElementById('processTable').innerHTML = html;
+
+  renderProcessCharts(proc, target);
+}
+
+function renderProcessCharts(proc, target) {
+  const name = proc.name;
+  const ctx1 = document.getElementById('processHourlyChart').getContext('2d');
+  if (procHourlyChart) procHourlyChart.destroy();
+  const hourLabels = ['7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM'];
+  const rngH = mulberry32(strSeed('hourly:' + name));
+  procHourlyChart = new Chart(ctx1, {
+    type: 'bar',
+    data: { labels: hourLabels, datasets: [{ label: 'Volume', data: hourLabels.map(() => rnd(rngH, 200, 800)), backgroundColor: 'rgba(155,89,182,0.6)', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  const ctx2 = document.getElementById('processTrendChart').getContext('2d');
+  if (procTrendChart) procTrendChart.destroy();
+  const days = ['13 Aug','14 Aug','15 Aug','16 Aug','17 Aug','18 Aug','19 Aug'];
+  const rngT = mulberry32(strSeed('trendp:' + name));
+  procTrendChart = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: days, datasets: [
+        { label: 'UPH', data: days.map(() => Math.round(target * (0.75 + rngT() * 0.5))), borderColor: '#9B59B6', backgroundColor: 'rgba(155,89,182,0.1)', tension: 0.3, fill: true },
+        { label: 'Target', data: days.map(() => target), borderColor: '#E74C3C', borderDash: [5, 5], pointRadius: 0 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: false } } }
+  });
+}
+
+// ============================================================================
+// PE METRICS RENDERING
+// ============================================================================
+
+// A process may span multiple timestamp groups; its PE metric set is the union.
+function peSetFor(proc) {
+  const lead = [], output = [], linkages = [];
+  proc.tsGroups.forEach(g => {
+    const P = PE_METRICS[g];
+    if (!P) return;
+    P.leadIndicators.forEach(li => { if (!lead.some(x => x.id === li.id)) lead.push({ ...li, group: g }); });
+    P.outputMetrics.forEach(om => { if (!output.some(x => x.id === om.id)) output.push({ ...om, group: g }); });
+    P.linkages.forEach(l => linkages.push(l));
+  });
+  return { lead, output, linkages };
+}
+
+function deltaCell(pct, lowerIsBetter) {
+  if (!isFinite(pct)) return '<span class="delta-flat">—</span>';
+  const improving = lowerIsBetter ? pct < 0 : pct > 0;
+  const cls = Math.abs(pct) < 0.5 ? 'delta-flat' : (improving ? 'delta-good' : 'delta-bad');
+  const arrow = pct > 0 ? '\u25B2' : pct < 0 ? '\u25BC' : '';
+  return `<span class="${cls}">${arrow} ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>`;
+}
+
+function renderPEMetrics(proc) {
+  const { lead, output, linkages } = peSetFor(proc);
+  const highlight = document.getElementById('peStatSelect').value;
+  const seedKey = proc.name;
+
+  // ---- Lead indicator table ----
+  document.getElementById('peLeadBadge').textContent = `${lead.length} input metrics`;
+  let html = '<thead><tr><th style="width:34%">Lead Indicator (Input)</th><th class="text-center">Unit</th>'
+    + '<th class="text-right">Average</th><th class="text-right">Wtd Avg</th><th class="text-right">TP90</th>'
+    + '<th class="text-center">DoD</th><th class="text-center">WoW</th></tr></thead><tbody>';
+  const statsCache = {};
+  lead.forEach(li => {
+    const s = computeLeadIndicatorStats(li, seedKey, mulberry32, strSeed);
+    statsCache[li.id] = s;
+    html += `<tr>
+      <td><span class="bold">${li.name}</span>
+        <div class="pe-formula">${li.formula}</div>
+        <div class="pe-diag">Diagnoses: ${li.diagnoses}</div></td>
+      <td class="text-center">${li.unit}</td>
+      <td class="text-right pe-stat ${highlight === 'avg' ? 'highlight' : ''}">${fmtStat(s.avg, li.unit)}</td>
+      <td class="text-right pe-stat ${highlight === 'wtdAvg' ? 'highlight' : ''}">${fmtStat(s.wtdAvg, li.unit)}</td>
+      <td class="text-right pe-stat ${highlight === 'tp90' ? 'highlight' : ''}">${fmtStat(s.tp90, li.unit)}</td>
+      <td class="text-center">${deltaCell(highlight === 'tp90' ? s.dodTp90 : s.dodAvg, s.lowerIsBetter)}</td>
+      <td class="text-center">${deltaCell(highlight === 'tp90' ? s.wowTp90 : s.wowAvg, s.lowerIsBetter)}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('peLeadTable').innerHTML = html;
+
+  const worst = lead.map(li => ({ li, s: statsCache[li.id] }))
+    .filter(x => x.s.wowTp90 > 0)
+    .sort((a, b) => b.s.wowTp90 - a.s.wowTp90)[0];
+  document.getElementById('peLeadNote').innerHTML = worst
+    ? `<b>Watch:</b> ${worst.li.name} TP90 has worsened ${worst.s.wowTp90.toFixed(1)}% week-on-week — the leading candidate for process-engineering attention in ${proc.name}. Weighted average is weighted by units processed per observation. Targets are TBD, to be sourced from the Ops Configuration Panel.`
+    : `All lead indicators stable or improving week-on-week in ${proc.name}. Weighted average is weighted by units processed per observation. Targets are TBD, to be sourced from the Ops Configuration Panel.`;
+
+  // ---- Output metrics table ----
+  let ohtml = '<thead><tr><th>Output Metric (Lag)</th><th class="text-center">Unit</th><th class="text-right">Current</th><th class="text-center">DoD</th><th class="text-center">WoW</th></tr></thead><tbody>';
+  output.forEach(om => {
+    const s = computeOutputMetricStats(om, seedKey, mulberry32, strSeed);
+    ohtml += `<tr><td class="bold">${om.name}</td><td class="text-center">${om.unit}</td>
+      <td class="text-right pe-stat bold">${fmtStat(s.current, om.unit)}</td>
+      <td class="text-center">${deltaCell(s.dod, s.lowerIsBetter)}</td>
+      <td class="text-center">${deltaCell(s.wow, s.lowerIsBetter)}</td></tr>`;
+  });
+  ohtml += '</tbody>';
+  document.getElementById('peOutputTable').innerHTML = ohtml;
+
+  // ---- Linkage list ----
+  let lhtml = '';
+  linkages.forEach(l => {
+    const leadM = lead.find(x => x.id === l.lead);
+    const outM = output.find(x => x.id === l.output);
+    if (!leadM || !outM) return;
+    lhtml += `<div class="linkage-item">
+      <span class="linkage-in">${leadM.name}</span>
+      <span class="linkage-arrow">&rarr;</span>
+      <span class="linkage-out">${outM.name}</span>
+      <span class="linkage-sens">${l.sensitivity}</span>
+    </div>`;
+  });
+  document.getElementById('peLinkageContainer').innerHTML = lhtml || '<p style="color:var(--gray-400);font-size:12px;">No linkages defined.</p>';
+
+  // ---- Trend selector ----
+  const trendSel = document.getElementById('peTrendSelect');
+  const prevVal = trendSel.value;
+  trendSel.innerHTML = lead.map(li => `<option value="${li.id}">${li.name}</option>`).join('');
+  if (lead.some(li => li.id === prevVal)) trendSel.value = prevVal;
+  renderPETrend();
+}
+
+function fmtStat(v, unit) {
+  if (unit === 'min') return v.toFixed(1);
+  if (unit === '%') return v.toFixed(1);
+  return Math.round(v).toString();
+}
+
+let peTrendChart;
+function renderPETrend() {
+  const procName = document.getElementById('leadFunctionSelect').value;
+  const proc = ALL_PROCESSES.find(p => p.name === procName);
+  if (!proc || proc.status !== 'active') return;
+  const { lead } = peSetFor(proc);
+  const id = document.getElementById('peTrendSelect').value;
+  const li = lead.find(x => x.id === id) || lead[0];
+  if (!li) return;
+  document.getElementById('peTrendMetricName').textContent = li.name;
+  const s = computeLeadIndicatorStats(li, proc.name, mulberry32, strSeed);
+  const labels = [];
+  for (let d = 13; d >= 0; d--) {
+    const dt = new Date(2026, 7, 19 - d);
+    labels.push(dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+  }
+  const ctx = document.getElementById('peTrendChart').getContext('2d');
+  if (peTrendChart) peTrendChart.destroy();
+  peTrendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Average', data: s.series.avg.map(v => +v.toFixed(1)), borderColor: '#9B59B6', backgroundColor: 'rgba(155,89,182,0.08)', tension: 0.3, fill: true },
+        { label: 'Weighted Avg', data: s.series.wtdAvg.map(v => +v.toFixed(1)), borderColor: '#3498DB', tension: 0.3 },
+        { label: 'TP90', data: s.series.tp90.map(v => +v.toFixed(1)), borderColor: '#E74C3C', borderDash: [5, 4], tension: 0.3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: { y: { beginAtZero: false, title: { display: true, text: li.unit } } }
+    }
+  });
+}
+
+// ---- Network PE rollup (site + cluster level) ----
+const SITES = [
+  { wh: 'WH4', city: 'Gurgaon', cluster: 'North' },
+  { wh: 'WH21', city: 'Lucknow', cluster: 'North' },
+  { wh: 'WH10', city: 'Bengaluru', cluster: 'South' },
+  { wh: 'WH25', city: 'Chennai', cluster: 'South' },
+  { wh: 'WH28', city: 'Hyderabad', cluster: 'South' },
+  { wh: 'WH29', city: 'Kochi', cluster: 'South' },
+  { wh: 'WH42', city: 'Coimbatore', cluster: 'South' },
+  { wh: 'WH12', city: 'Kolkata', cluster: 'East' },
+  { wh: 'WH45', city: 'Patna', cluster: 'East' },
+  { wh: 'WH47', city: 'Bhubaneswar', cluster: 'East' },
+];
+
+function populateRollupSelectors() {
+  const psel = document.getElementById('rollupProcessSelect');
+  if (!psel.options.length) {
+    psel.innerHTML = TAXONOMY.map(d => {
+      const opts = d.processes.filter(p => p.status === 'active').map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+      return opts ? `<optgroup label="${d.dept}">${opts}</optgroup>` : '';
+    }).join('');
+  }
+  const proc = ALL_PROCESSES.find(p => p.name === psel.value);
+  const isel = document.getElementById('rollupIndicatorSelect');
+  if (proc && proc.status === 'active') {
+    const { lead } = peSetFor(proc);
+    const prev = isel.value;
+    isel.innerHTML = lead.map(li => `<option value="${li.id}">${li.name}</option>`).join('');
+    if (lead.some(l => l.id === prev)) isel.value = prev;
+  }
+}
+
+function renderNetworkPERollup() {
+  populateRollupSelectors();
+  const procName = document.getElementById('rollupProcessSelect').value;
+  const proc = ALL_PROCESSES.find(p => p.name === procName);
+  if (!proc || proc.status !== 'active') return;
+  const { lead } = peSetFor(proc);
+  const li = lead.find(x => x.id === document.getElementById('rollupIndicatorSelect').value) || lead[0];
+  if (!li) return;
+
+  const rows = SITES.map(site => {
+    const s = computeLeadIndicatorStats(li, procName + ':' + site.wh, mulberry32, strSeed);
+    return { site, s };
+  });
+  // Rank worst-first on TP90 (for lower-is-better metrics, highest TP90 is worst)
+  rows.sort((a, b) => li.lowerIsBetter !== false ? b.s.tp90 - a.s.tp90 : a.s.tp90 - b.s.tp90);
+
+  const clusterAgg = {};
+  rows.forEach(r => {
+    const c = r.site.cluster;
+    if (!clusterAgg[c]) clusterAgg[c] = { sum: 0, n: 0 };
+    clusterAgg[c].sum += r.s.tp90; clusterAgg[c].n++;
+  });
+
+  let html = `<thead><tr><th class="text-center">Rank</th><th>Site</th><th>Cluster</th>
+    <th class="text-right">Average</th><th class="text-right">Wtd Avg</th><th class="text-right">TP90</th>
+    <th class="text-center">DoD</th><th class="text-center">WoW</th><th class="text-center">vs Cluster Avg</th></tr></thead><tbody>`;
+  rows.forEach((r, i) => {
+    const cAvg = clusterAgg[r.site.cluster].sum / clusterAgg[r.site.cluster].n;
+    const vsCluster = ((r.s.tp90 - cAvg) / cAvg) * 100;
+    html += `<tr>
+      <td class="text-center"><span class="rank-badge ${i < 3 ? 'worst' : ''}">${i + 1}</span></td>
+      <td class="bold">${r.site.wh} — ${r.site.city}</td>
+      <td>${r.site.cluster}</td>
+      <td class="text-right pe-stat">${fmtStat(r.s.avg, li.unit)}</td>
+      <td class="text-right pe-stat">${fmtStat(r.s.wtdAvg, li.unit)}</td>
+      <td class="text-right pe-stat highlight">${fmtStat(r.s.tp90, li.unit)}</td>
+      <td class="text-center">${deltaCell(r.s.dodTp90, r.s.lowerIsBetter)}</td>
+      <td class="text-center">${deltaCell(r.s.wowTp90, r.s.lowerIsBetter)}</td>
+      <td class="text-center">${deltaCell(vsCluster, r.s.lowerIsBetter)}</td>
+    </tr>`;
+  });
+  Object.keys(clusterAgg).sort().forEach(c => {
+    html += `<tr class="cluster-row"><td></td><td colspan="4">${c} Cluster — TP90 average</td>
+      <td class="text-right">${fmtStat(clusterAgg[c].sum / clusterAgg[c].n, li.unit)}</td><td colspan="3"></td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('rollupTable').innerHTML = html;
+}
+
+function renderEventChains(tsGroupKeys) {
+  const chains = buildEventChains(tsGroupKeys, 3, document.getElementById('filterDate').value);
+  let html = '';
+  chains.forEach(chain => {
+    const totalDur = chain.events[chain.events.length - 1].atSec - chain.events[0].atSec;
+    html += `<div class="chain-card"><div class="chain-card-header"><span>Work Unit ${chain.id}</span><span>Total duration: ${totalDur}s</span></div><div class="chain-list">`;
+    let lastGroupLabel = null;
+    chain.events.forEach(ev => {
+      const badge = ev.status === 'existing' ? `<span class="badge-existing">EXISTING</span>` : ev.status === 'gap' ? `<span class="badge-gap">GAP</span>` : '';
+      const src = ev.source ? `<span class="src">${ev.source}</span>` : (ev.status === 'gap' ? `<span class="src">source: TBD</span>` : '');
+      if (tsGroupKeys.length > 1 && ev.groupLabel !== lastGroupLabel) {
+        html += `<div style="font-size:10.5px;font-weight:700;color:var(--purple-600);text-transform:uppercase;letter-spacing:0.4px;margin-top:8px;padding-top:6px;border-top:1px dotted var(--purple-200);">${ev.groupLabel} stage</div>`;
+        lastGroupLabel = ev.groupLabel;
+      }
+      html += `<div class="chain-event"><span class="t">${ev.atLabel}</span><span class="n">${ev.name} ${badge}<br>${src}</span><span class="text-right">${ev.deltaSec !== undefined ? '+' + ev.deltaSec + 's' : '—'}</span><span></span></div>`;
+    });
+    html += `</div></div>`;
+  });
+  document.getElementById('chainContainer').innerHTML = html;
+  const allTs = resolveTimestampsMulti(tsGroupKeys);
+  const gapCount = allTs.filter(t => t.status === 'gap').length;
+  const existCount = allTs.filter(t => t.status === 'existing').length;
+  const groupLabels = tsGroupKeys.map(k => TIMESTAMP_GROUPS[k].label).join(' + ');
+  document.getElementById('chainNote').innerHTML = `<b>${groupLabels}</b>: ${existCount} timestamp(s) already captured, <b style="color:var(--amber)">${gapCount} new capture(s) required</b>. Sample work units above are illustrative (seeded mock data), not live production data.`;
+}
+
+// ---- Employee Inspector ----
+function renderEmployeeTable() {
+  const search = (document.getElementById('empSearch').value || '').toLowerCase();
+  let data = EMPLOYEES;
+  if (search) data = data.filter(e => e.id.toLowerCase().includes(search) || e.name.toLowerCase().includes(search));
+  data = [...data].sort((a, b) => b.uph - a.uph);
+  document.getElementById('empCount').textContent = `${data.length} associates`;
+  let html = '<thead><tr><th>Emp ID</th><th>Name</th><th>Process</th><th class="text-right">Units</th><th class="text-right">Hrs (Direct)</th><th class="text-right">Hrs (Inferred)</th><th class="text-right">Hrs (Total)</th><th class="text-right">UPH</th><th class="text-right">Target</th><th class="text-center">% to Target</th></tr></thead><tbody>';
+  data.forEach(e => {
+    const badge = e.pct >= 100 ? 'badge-green' : e.pct >= 70 ? 'badge-orange' : 'badge-red';
+    html += `<tr style="cursor:pointer" onclick="showTimeline('${e.id}','${e.name}','${e.process}')"><td class="bold" style="color:var(--purple-700)">${e.id}</td><td>${e.name}</td><td>${e.process}</td><td class="text-right">${e.units.toLocaleString()}</td><td class="text-right">${e.direct}</td><td class="text-right">${e.inferred}</td><td class="text-right">${e.total}</td><td class="text-right bold">${e.uph}</td><td class="text-right">${e.target}</td><td class="text-center"><span class="${badge}">${e.pct}%</span></td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('employeeTable').innerHTML = html;
+}
+function filterEmployees() { renderEmployeeTable(); }
+
+function showTimeline(empId, empName, procName) {
+  document.getElementById('timelineEmpName').textContent = `${empName} (${empId}) — ${procName}`;
+  const proc = ALL_PROCESSES.find(p => p.name === procName);
+  const tsGroupKeys = proc ? proc.tsGroups : ['pick'];
+  const chain = buildEventChains(tsGroupKeys, 1, empId)[0];
+  const colors = { existing: '#27AE60', gap: '#F39C12' };
+  const first = chain.events[0].atSec, last = chain.events[chain.events.length - 1].atSec;
+  const totalWidth = Math.max(last - first, 1);
+  let html = '<div style="margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:11px;">';
+  html += `<span><span style="display:inline-block;width:10px;height:10px;background:${colors.existing};border-radius:2px;margin-right:4px;"></span>Existing timestamp</span>`;
+  html += `<span><span style="display:inline-block;width:10px;height:10px;background:${colors.gap};border-radius:2px;margin-right:4px;"></span>New capture required</span>`;
+  html += '</div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;"><div style="width:70px;font-size:11px;color:var(--gray-500);font-weight:600;">' + chain.events[0].atLabel + '</div><div style="flex:1;height:32px;background:var(--gray-100);border-radius:4px;position:relative;overflow:hidden;">';
+  chain.events.forEach((ev, i) => {
+    if (i === 0) return;
+    const left = ((chain.events[i - 1].atSec - first) / totalWidth * 100).toFixed(1);
+    const width = Math.max(((ev.atSec - chain.events[i - 1].atSec) / totalWidth * 100), 1.5).toFixed(1);
+    html += `<div style="position:absolute;left:${left}%;width:${width}%;height:100%;background:${colors[ev.status] || '#95A5A6'};display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:600;border-right:1px solid rgba(255,255,255,0.4);overflow:hidden;" title="${ev.name}: ${ev.deltaSec}s"></div>`;
+  });
+  html += '</div><div style="width:70px;font-size:11px;color:var(--gray-500);font-weight:600;text-align:right;">' + chain.events[chain.events.length - 1].atLabel + '</div></div>';
+  html += '<div style="margin-top:10px;font-size:11.5px;color:var(--gray-600);">Full scan-level chronological log for this associate\'s most recent work unit in ' + procName + '. Per BR-EMP.2, this view combines punch-in/out with every system transaction timestamp, including bin/rack-level granularity once captured.</div>';
+  document.getElementById('timelineContainer').innerHTML = html;
+}
+
+// ---- Lead Indicators ----
+function renderLeadIndicators() {
+  const procName = document.getElementById('leadFunctionSelect').value;
+  if (!procName) return;
+  const proc = ALL_PROCESSES.find(p => p.name === procName);
+  if (!proc || !proc.tsGroups) return;
+  const groupLabel = proc.tsGroups.map(k => TIMESTAMP_GROUPS[k].label).join(' + ');
+  document.getElementById('leadFnName').textContent = `${procName} (${groupLabel})`;
+
+  // PE metrics block + scan-level evidence layer now live on this tab
+  renderPEMetrics(proc);
+  renderEventChains(proc.tsGroups);
+
+  const applicable = METRIC_DEFINITIONS.filter(m => m.applicableGroups === 'all_active' || (Array.isArray(m.applicableGroups) && proc.tsGroups.some(g => m.applicableGroups.includes(g))));
+
+  const dates10 = [];
+  for (let d = 0; d < 10; d++) {
+    const dt = new Date(2026, 7, 10 + d);
+    dates10.push(dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+  }
+  const rng = mulberry32(strSeed('lead:' + procName));
+  const series = {};
+  applicable.forEach(m => {
+    series[m.id] = dates10.map(() => {
+      if (m.unit === '%' || m.unit.includes('%')) return +(rng() * 30 + (m.id === 'productive_time' ? 65 : 2)).toFixed(1);
+      if (m.unit.includes('seconds')) return rnd(rng, 15, 180);
+      if (m.unit.includes('minutes')) return +(rng() * 8 + 2).toFixed(1);
+      if (m.unit.includes('boxes')) return rnd(rng, 40, 140);
+      return +(rng() * 10).toFixed(1);
+    });
+  });
+
+  let html = '<thead><tr><th>Date</th>';
+  applicable.forEach(m => html += `<th class="text-center">${m.name}<br><span style="font-weight:400;text-transform:none;font-size:10px;">${m.unit}</span></th>`);
+  html += '</tr></thead><tbody>';
+  dates10.forEach((d, i) => {
+    const bg = i % 2 === 1 ? 'background:var(--gray-50)' : '';
+    html += `<tr style="${bg}"><td class="bold">${d}</td>`;
+    applicable.forEach(m => html += `<td class="text-center">${series[m.id][i]}</td>`);
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('leadTable').innerHTML = html;
+
+  document.getElementById('leadFormulaNote').innerHTML = applicable.map(m =>
+    `<div style="margin-bottom:4px;"><b>${m.name}:</b> ${m.formula}${m.existingInV1 === false ? ' <span class="badge-gap" style="margin-left:4px;">NEW</span>' : ''}</div>`
+  ).join('');
+
+  const ctx = document.getElementById('leadTrendChart').getContext('2d');
+  if (leadChart) leadChart.destroy();
+  const colors = ['#27AE60', '#E74C3C', '#F39C12', '#9B59B6', '#3498DB', '#1ABC9C', '#8E44AD', '#D35400'];
+  leadChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates10, datasets: applicable.slice(0, 6).map((m, i) => ({ label: m.name, data: series[m.id], borderColor: colors[i % colors.length], tension: 0.3 })) },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+// ---- Indirect Task Management (V1 BR-5.5, simple module) ----
+const INDIRECT_TASK_TYPES = ['Unloading', 'Loading', 'Water Spider', 'Cleaning', 'Consolidation Move', 'Staging Support'];
+const ITM_ASSOCIATES = [];
+(function seedITM() {
+  const rng = mulberry32(strSeed('itm'));
+  const idle = ["Manoj Tiwari","Geeta Rani","Faisal Khan","Lakshmi N","Irfan Sheikh","Bhavna Rathod"];
+  idle.forEach((name, i) => {
+    ITM_ASSOCIATES.push({ id: `PRP${900 + i}`, name, idleSince: `${rnd(rng, 7, 17)}:${String(rnd(rng, 0, 59)).padStart(2, '0')}`, assigned: null });
+  });
+})();
+
+function renderIndirectTaskManagement() {
+  document.getElementById('itmCount').textContent = `${ITM_ASSOCIATES.filter(a => !a.assigned).length} unassigned`;
+  let html = '';
+  ITM_ASSOCIATES.forEach((a, idx) => {
+    html += `<div class="itm-card"><div><span class="who">${a.name}</span> <span style="color:var(--gray-400);font-size:12px;">(${a.id})</span><div style="font-size:11px;color:var(--gray-500);">Idle since ${a.idleSince}</div></div>`;
+    html += `<div style="display:flex;gap:8px;align-items:center;">`;
+    html += `<select id="itmSelect${idx}" ${a.assigned ? 'disabled' : ''}><option value="">Select indirect task...</option>${INDIRECT_TASK_TYPES.map(t => `<option value="${t}" ${a.assigned === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+    html += a.assigned
+      ? `<span class="badge-green">Assigned: ${a.assigned}</span>`
+      : `<button onclick="assignIndirect(${idx})">Assign</button>`;
+    html += `</div></div>`;
+  });
+  document.getElementById('itmList').innerHTML = html;
+  renderITMRollup();
+}
+function assignIndirect(idx) {
+  const val = document.getElementById('itmSelect' + idx).value;
+  if (!val) return;
+  ITM_ASSOCIATES[idx].assigned = val;
+  renderIndirectTaskManagement();
+}
+function renderITMRollup() {
+  const rollup = {};
+  INDIRECT_TASK_TYPES.forEach(t => rollup[t] = 0);
+  const rng = mulberry32(strSeed('itmrollup'));
+  ITM_ASSOCIATES.forEach(a => { if (a.assigned) rollup[a.assigned] += +(rng() * 2 + 0.3).toFixed(2); });
+  let html = '<thead><tr><th>Indirect Task</th><th class="text-right">Associates Assigned Today</th><th class="text-right">Hours Rolled Up</th></tr></thead><tbody>';
+  INDIRECT_TASK_TYPES.forEach(t => {
+    const count = ITM_ASSOCIATES.filter(a => a.assigned === t).length;
+    html += `<tr><td class="bold">${t}</td><td class="text-right">${count}</td><td class="text-right">${rollup[t].toFixed(2)}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('itmRollupTable').innerHTML = html;
+}
+
+// ---- Raw Data ----
+let RAW_EVENTS = [];
+function buildRawEvents() {
+  RAW_EVENTS = [];
+  let seq = 1;
+  ACTIVE_PROCESSES.forEach(p => {
+    const chains = buildEventChains(p.tsGroups, 6, 'raw:' + p.name);
+    chains.forEach(chain => {
+      chain.events.forEach(ev => {
+        RAW_EVENTS.push({
+          event_id: 100000 + seq++,
+          timestamp: ev.atLabel,
+          user_id: `PRP${rnd(mulberry32(seq), 1, 200)}`,
+          warehouse_id: document.getElementById('filterWH') ? document.getElementById('filterWH').value : 'WH10',
+          process: p.name,
+          event_name: ev.name,
+          ts_status: ev.status,
+          source: ev.source || 'TBD — new capture',
+          work_unit: chain.id,
+        });
+      });
+    });
+  });
+  RAW_EVENTS.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+}
+
+let rawPage = 0;
+const rawPageSize = 25;
+let filteredRaw = [];
+
+function applyRawFilters() {
+  if (RAW_EVENTS.length === 0) buildRawEvents();
+  const proc = document.getElementById('rawProcess').value;
+  const tsStatus = document.getElementById('rawTsStatus').value;
+  const user = document.getElementById('rawUser').value.trim().toUpperCase();
+  const from = document.getElementById('rawTimeFrom').value;
+  const to = document.getElementById('rawTimeTo').value;
+  filteredRaw = RAW_EVENTS.filter(e => {
+    if (proc !== 'all' && e.process !== proc) return false;
+    if (tsStatus !== 'all' && e.ts_status !== tsStatus) return false;
+    if (user && !e.user_id.toUpperCase().includes(user)) return false;
+    if (from && e.timestamp < from) return false;
+    if (to && e.timestamp > to + ':59') return false;
+    return true;
+  });
+  rawPage = 0;
+  renderRawTable();
+}
+
+function renderRawTable() {
+  const start = rawPage * rawPageSize;
+  const page = filteredRaw.slice(start, start + rawPageSize);
+  document.getElementById('rawCount').textContent = `${filteredRaw.length} events`;
+  let html = '<thead><tr><th>Event ID</th><th>Timestamp</th><th>User ID</th><th>WH</th><th>Process</th><th>Event</th><th>Work Unit</th><th>Source</th><th>Status</th></tr></thead><tbody>';
+  page.forEach(e => {
+    const badge = e.ts_status === 'existing' ? 'badge-existing' : 'badge-gap';
+    html += `<tr><td class="bold">${e.event_id}</td><td>${e.timestamp}</td><td style="color:var(--purple-700);font-weight:600;">${e.user_id}</td><td>${e.warehouse_id}</td><td>${e.process}</td><td>${e.event_name}</td><td>${e.work_unit}</td><td style="font-size:11px;color:var(--gray-500);">${e.source}</td><td><span class="${badge}">${e.ts_status.toUpperCase()}</span></td></tr>`;
+  });
+  if (page.length === 0) html += '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:30px;">No events match the filters</td></tr>';
+  html += '</tbody>';
+  document.getElementById('rawTable').innerHTML = html;
+  document.getElementById('rawPageInfo').textContent = `Showing ${filteredRaw.length ? start + 1 : 0}-${Math.min(start + rawPageSize, filteredRaw.length)} of ${filteredRaw.length}`;
+  document.getElementById('rawPrev').disabled = rawPage === 0;
+  document.getElementById('rawNext').disabled = start + rawPageSize >= filteredRaw.length;
+}
+function rawPageChange(dir) { rawPage += dir; renderRawTable(); }
+
+function exportCSV() {
+  let csv = 'event_id,timestamp,user_id,warehouse_id,process,event_name,work_unit,source,ts_status\n';
+  filteredRaw.forEach(e => { csv += `${e.event_id},${e.timestamp},${e.user_id},${e.warehouse_id},"${e.process}","${e.event_name}",${e.work_unit},"${e.source}",${e.ts_status}\n`; });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'throughput_raw_data_phase2.csv';
+  a.click();
+}
+
+// ---- Init ----
+populateProcessSelectors();
+renderAll();
+
+// Expose key data structures on window (top-level const/let don't auto-attach) —
+// used by the headless validation sweep and by anyone debugging in devtools.
+window.TAXONOMY = TAXONOMY;
+window.TIMESTAMP_GROUPS = TIMESTAMP_GROUPS;
+window.METRIC_DEFINITIONS = METRIC_DEFINITIONS;
+window.ALL_PROCESSES = ALL_PROCESSES;
+window.ACTIVE_PROCESSES = ACTIVE_PROCESSES;
+window.EMPLOYEES = EMPLOYEES;
+window.ITM_ASSOCIATES = ITM_ASSOCIATES;
+window.INDIRECT_TASK_TYPES = INDIRECT_TASK_TYPES;
+window.assignIndirect = assignIndirect;
+window.applyRawFilters = applyRawFilters;
+window.rawPageChange = rawPageChange;
+window.exportCSV = exportCSV;
+window.applyFilters = applyFilters;
+window.resetFilters = resetFilters;
+window.renderProcessInspector = renderProcessInspector;
+window.renderLeadIndicators = renderLeadIndicators;
+window.renderIndirectTaskManagement = renderIndirectTaskManagement;
+window.renderEmployeeTable = renderEmployeeTable;
+window.renderPETrend = renderPETrend;
+window.renderNetworkPERollup = renderNetworkPERollup;
+window.PE_METRICS = PE_METRICS;
+window.peSetFor = peSetFor;
+window.SITES = SITES;
+window.computeLeadIndicatorStats = computeLeadIndicatorStats;
+window.computeOutputMetricStats = computeOutputMetricStats;
+window.mulberry32 = mulberry32;
+window.strSeed = strSeed;
+Object.defineProperty(window, 'RAW_EVENTS', { get: () => RAW_EVENTS });
+</script>
+</body>
+</html>
